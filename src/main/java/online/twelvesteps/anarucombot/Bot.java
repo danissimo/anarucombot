@@ -40,7 +40,7 @@ final class Bot extends TelegramLongPollingBot {
           : null;
       if (errLine != null) {
         System.err.println(errLine
-            + "\nUsage: ANARUCOMBOTTOKEN='$TOKEN' java -jar anarucombot.jar");
+            + "\nUsage: ANARUCOMBOTTOKEN=\"$TOKEN\" java -jar anarucombot.jar");
         System.exit(-1);
       }
     }
