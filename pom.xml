@@ -16,14 +16,9 @@
   </properties>
 
   <dependencies>
-    <!--<dependency>
-      <groupId>org.telegram</groupId>
-      <artifactId>telegrambots</artifactId>
-      <version>6.4.0</version>
-    </dependency>-->
     <dependency>
       <groupId>org.telegram</groupId>
-      <artifactId>telegrambotsextensions</artifactId>
+      <artifactId>telegrambots</artifactId>
       <version>6.4.0</version>
     </dependency>
 
@@ -33,11 +28,6 @@
       <version>1.18.24</version>
       <scope>provided</scope>
     </dependency>
-    <!--<dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-      <<version>31.1-jre</version>>
-    </dependency>-->
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
@@ -45,13 +35,45 @@
     </dependency>
   </dependencies>
 
-  <!--build>
+  <build>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.10.1</version>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.5.0</version>
+        <executions>
+          <execution>
+            <id>copy-dependencies</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/lib</outputDirectory>
+              <scope>runtime</scope>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.3.0</version>
+        <executions>
+          <execution>
+            <id>default-jar</id>
+            <configuration>
+              <archive>
+                <manifest>
+                  <mainClass>online.twelvesteps.anarucombot.Bot</mainClass>
+                  <addClasspath>true</addClasspath>
+                  <classpathPrefix>lib</classpathPrefix>
+                </manifest>
+              </archive>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
-  </build-->
+  </build>
 </project>
