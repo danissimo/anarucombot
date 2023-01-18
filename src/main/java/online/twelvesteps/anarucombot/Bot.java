@@ -22,13 +22,11 @@ final class Bot extends TelegramLongPollingBot {
   private static final Map<Long, String> TRUSTED_CHATS = Map.of(
       -1001636629132L, "Прожарка бота",
       -1001640782633L, "АНА Онлайн");
-
-  private static final String ENV_TOKEN = "ANARUCOMBOTTOKEN";
   private static final String[] NO_ARGS = new String[0];
+  private static final String ENV_TOKEN = "ANARUCOMBOTTOKEN";
+  private final String bottoken;
   private final String botname = "anarucombot";
   private final Pattern ptrn = Pattern.compile("^/(\\w+)(?:@" + botname + ")?(.+)?$");
-  private final String bottoken;
-
   private final Map<String, BotCommand> commands = new HashMap<>(0, 1F);
 
   private Bot() {
