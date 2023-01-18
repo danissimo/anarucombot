@@ -1,0 +1,29 @@
+name: publish to docker
+# [Manually running a workflow]
+# (https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow)
+on:
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: 'Tag to publish image for'
+        required: true
+        type: string
+jobs:
+  build-container:
+    runs-on: ubuntu-latest
+    steps:
+      # [Publish Docker Action]
+      # (https://github.com/marketplace/actions/publish-docker-action)
+    - name: Publish Docker Action
+      uses: jerray/publish-docker-action@v1.0.5
+      with:
+        username: ${{ secret.DOCKER_USERNAME }}
+        password: ${{ secret.DOCKER_PASSWORD }}
+        registry: docker.io
+        repository: anarucombot
+        file: Dockerfile
+        path: .
+        tags: latest
+        allow_pull_request: false
+        auto_tag: true
+        cache: true
