@@ -25,7 +25,7 @@ final class Bot extends TelegramLongPollingBot {
 
   private static final String[] NO_ARGS = new String[0];
   private final String botname = "anarucombot";
-  private final Pattern ptrn = Pattern.compile("^/(\\w+)(?:@" + botname + ")?(.+)?$");;
+  private final Pattern ptrn = Pattern.compile("^/(\\w+)(?:@" + botname + ")?(.+)?$");
   private final String bottoken;
 
   private final Map<String, BotCommand> commands = new HashMap<>(0, 1F);
@@ -100,11 +100,6 @@ final class Bot extends TelegramLongPollingBot {
           String[] args = tail == null ? NO_ARGS : tail.trim().split("\\s+");
           BotCommand cmd = commands.get(id);
           if (cmd != null) {
-            log.info(String.format(
-                "onUpdateReceived: %s sent to %s msg %s",
-                Stringers.toString(msg.getFrom()),
-                Stringers.toString(chat),
-                Stringers.first(128).of(msg.getText())));
             cmd.received(this, msg.getFrom(), chat, args);
             cared = true;
           }
