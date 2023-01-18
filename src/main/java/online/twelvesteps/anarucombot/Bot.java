@@ -1,14 +1,18 @@
 package online.twelvesteps.anarucombot;
 
 import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
+import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -57,7 +61,8 @@ final class Bot extends TelegramLongPollingBot {
         new SendFileContentCommand("msg_7_prey_serenity"),
         new CommandChain("msg_8_links")
             .chain(new SendFileContentCommand("msg_8_links"))
-            .chain(new SendFileContentCommand("msg_9_ads"))
+            .chain(new SendFileContentCommand("msg_9_ads")),
+        new BeginCommand()
     );
   }
 
@@ -100,6 +105,11 @@ final class Bot extends TelegramLongPollingBot {
           String[] args = tail == null ? NO_ARGS : tail.trim().split("\\s+");
           BotCommand cmd = commands.get(id);
           if (cmd != null) {
+            log.info(String.format(
+                "onUpdateReceived: %s sent to %s msg %s",
+                Stringers.toString(msg.getFrom()),
+                Stringers.toString(chat),
+                Stringers.first(128).of(msg.getText())));
             cmd.received(this, msg.getFrom(), chat, args);
             cared = true;
           }
@@ -119,6 +129,25 @@ final class Bot extends TelegramLongPollingBot {
             Stringers.toString(msg.getFrom()),
             Stringers.toString(chat),
             Stringers.first(128).of(msg.getText())));
+      }
+    } else if (update.hasCallbackQuery()) {
+      // TODO: set up a context on /begin
+
+      // cb.message with the callback button that originated the query. Note
+      //   that message content and message date will not be available if the
+      //   message is too old
+      // cb.data contains what was set in callbackData on the markup keyboard
+      CallbackQuery cb = update.getCallbackQuery();
+      Message msg = cb.getMessage();
+      val replyMarkup = msg.getReplyMarkup();
+      msg.setFrom(null);
+      msg.setChat(null);
+      msg.setReplyMarkup(null);
+      log.info("onUpdateReceived:"
+          + " cb.data = {}, cb.msg.text = {}",
+          cb.getData(), msg.getText());
+      for (List<InlineKeyboardButton> i : replyMarkup.getKeyboard()) {
+        log.info("cb.msg.replyMarkup: {}", String.join(" | ", i.stream().map(Stringers::toString).toArray(String[]::new)));
       }
     } else {
       log.warn("onUpdateReceived: no message in update: {}", update);
