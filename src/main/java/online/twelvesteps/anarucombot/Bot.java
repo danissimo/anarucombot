@@ -23,6 +23,7 @@ final class Bot extends TelegramLongPollingBot {
       -1001636629132L, "Прожарка бота",
       -1001640782633L, "АНА Онлайн");
 
+  private static final String ENV_TOKEN = "ANARUCOMBOTTOKEN";
   private static final String[] NO_ARGS = new String[0];
   private final String botname = "anarucombot";
   private final Pattern ptrn = Pattern.compile("^/(\\w+)(?:@" + botname + ")?(.+)?$");
@@ -31,16 +32,16 @@ final class Bot extends TelegramLongPollingBot {
   private final Map<String, BotCommand> commands = new HashMap<>(0, 1F);
 
   private Bot() {
-    bottoken = System.getenv("ANARUCOMBOTTOKEN");
+    bottoken = System.getenv(ENV_TOKEN);
     {
       String errLine
-          = bottoken == null ? "No ANARUCOMBOTTOKEN environment variable value found"
-          : bottoken.isEmpty() ? "ANARUCOMBOTTOKEN environment variable is blank"
-          : bottoken.length() != bottoken.strip().length() ? "ANARUCOMBOTTOKEN environment variable is not stripped"
+          = bottoken == null ? "No " + ENV_TOKEN + " environment variable value found"
+          : bottoken.isEmpty() ? ENV_TOKEN + " environment variable is blank"
+          : bottoken.length() != bottoken.strip().length() ? ENV_TOKEN + " environment variable is not stripped"
           : null;
       if (errLine != null) {
         System.err.println(errLine
-            + "\nUsage: ANARUCOMBOTTOKEN=\"$TOKEN\" java -jar anarucombot.jar");
+            + "\nUsage: " + ENV_TOKEN + "=\"$TOKEN\" java -jar anarucombot.jar");
         System.exit(-1);
       }
     }
@@ -57,8 +58,7 @@ final class Bot extends TelegramLongPollingBot {
         new SendFileContentCommand("msg_7_prey_serenity"),
         new CommandChain("msg_8_links")
             .chain(new SendFileContentCommand("msg_8_links"))
-            .chain(new SendFileContentCommand("msg_9_ads"))
-    );
+            .chain(new SendFileContentCommand("msg_9_ads")));
   }
 
   private void registerCommand(BotCommand cmd) {
