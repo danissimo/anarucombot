@@ -29,7 +29,7 @@ final class Bot extends TelegramLongPollingBot {
   private static final String[] NO_ARGS = new String[0];
   private static final String ENV_TOKEN = "ANARUCOMBOTTOKEN";
   private final String bottoken;
-  private final String botname = "anarucomalfabot";
+  private final String botname = "anarucombot";
   private final Pattern ptrn = Pattern.compile("^/(\\w+)(?:@" + botname + ")?(.+)?$");
   private final Map<String, BotReaction> commands = new HashMap<>(0, 1F);
 
