@@ -29,7 +29,7 @@ final class Bot extends TelegramLongPollingBot {
   private static final String[] NO_ARGS = new String[0];
   private static final String ENV_TOKEN = "ANARUCOMBOTTOKEN";
   private final String bottoken;
-  private final String botname = "anarucomalfabot";
+  private final String botname = "anarucombot";
   private final Pattern ptrn = Pattern.compile("^/(\\w+)(?:@" + botname + ")?(.+)?$");
   private final Map<String, BotReaction> commands = new HashMap<>(0, 1F);
 
@@ -49,8 +49,8 @@ final class Bot extends TelegramLongPollingBot {
       }
     }
 
-    bindReaction(new SendMarkdownResourceReaction("start"              ), "start");
-    bindReaction(new SendMarkdownResourceReaction("help"               ), "help" );
+    bindReaction(new SendMarkdownResourceReaction("start"          ), "start");
+    bindReaction(new SendMarkdownResourceReaction("help"           ), "help" );
     bindReaction(new SendMarkdownResourceReaction("1_what_is"      ), "1", "msg_1_what_is"      );
     bindReaction(new SendMarkdownResourceReaction("2_the_goal"     ), "2", "msg_2_the_goal"     );
     bindReaction(new SendMarkdownResourceReaction("3_steps"        ), "3", "msg_3_steps"        );
