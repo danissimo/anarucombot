@@ -113,8 +113,10 @@ final class Bot extends TelegramLongPollingBot {
         }
       }
       if (!cared) {
+        String what = msg.isCommand() ? "command" : "message";
         log.warn(String.format(
-            "onUpdateReceived: update was not taken care: %s sent to %s msg %s",
+            "onUpdateReceived: %s was not taken care: %s sent to %s msg %s",
+            what,
             Stringers.toString(msg.getFrom()),
             Stringers.toString(chat),
             Stringers.first(128).of(msg.getText())));
