@@ -13,12 +13,16 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 @Slf4j
 final class Bot extends TelegramLongPollingBot {
   public static void main(String... args) throws Exception {
     new TelegramBotsApi(DefaultBotSession.class).registerBot(new Bot());
   }
 
+  private static final int COMMAND_CODE_MAX_LEN = 31; // mind the leading slash
   private static final Map<Long, String> TRUSTED_CHATS = Map.of(
       -1001636629132L, "Прожарка бота",
       -1001640782633L, "АНА Онлайн");
@@ -27,7 +31,7 @@ final class Bot extends TelegramLongPollingBot {
   private final String bottoken;
   private final String botname = "anarucomalfabot";
   private final Pattern ptrn = Pattern.compile("^/(\\w+)(?:@" + botname + ")?(.+)?$");
-  private final Map<String, BotCommand> commands = new HashMap<>(0, 1F);
+  private final Map<String, BotReaction> commands = new HashMap<>(0, 1F);
 
   private Bot() {
     System.out.println("Started on behalf of " + botname);
@@ -45,32 +49,36 @@ final class Bot extends TelegramLongPollingBot {
       }
     }
 
-    registerCommands(
-        new SendFileContentCommand("start"),
-        new SendFileContentCommand("help"),
-        new SendFileContentCommand("msg_1_what_is"),
-        new SendFileContentCommand("msg_2_the_goal"),
-        new SendFileContentCommand("msg_3_steps"),
-        new SendFileContentCommand("msg_4_traditions"),
-        new SendFileContentCommand("msg_5_solution"),
-        new SendFileContentCommand("msg_6_prey_opening"),
-        new SendFileContentCommand("msg_7_prey_serenity"),
-        new CommandChain("msg_8_links")
-            .chain(new SendFileContentCommand("msg_8_links"))
-            .chain(new SendFileContentCommand("msg_9_ads")));
+    bindReaction(new SendMarkdownResourceReaction("start"              ), "start");
+    bindReaction(new SendMarkdownResourceReaction("help"               ), "help" );
+    bindReaction(new SendMarkdownResourceReaction("1_what_is"      ), "1", "msg_1_what_is"      );
+    bindReaction(new SendMarkdownResourceReaction("2_the_goal"     ), "2", "msg_2_the_goal"     );
+    bindReaction(new SendMarkdownResourceReaction("3_steps"        ), "3", "msg_3_steps"        );
+    bindReaction(new SendMarkdownResourceReaction("4_traditions"   ), "4", "msg_4_traditions"   );
+    bindReaction(new SendMarkdownResourceReaction("5_solution"     ), "5", "msg_5_solution"     );
+    bindReaction(new SendMarkdownResourceReaction("6_prey_opening" ), "6", "msg_6_prey_opening" );
+    bindReaction(new SendMarkdownResourceReaction("7_prey_serenity"), "7", "msg_7_prey_serenity");
+    bindReaction(BotReactionChain.builder()
+            .chain(new SendMarkdownResourceReaction("8_links"))
+            .chain(new SendMarkdownResourceReaction("9_ads"))
+            .build(), "8", "msg_8_links");
   }
 
-  private void registerCommand(BotCommand cmd) {
-    Object existing = commands.put(cmd.id(), cmd);
-    if (existing != null) {
-      throw new IllegalStateException("Another registered: " + cmd.id());
+  private void bindReaction(BotReaction reaction, String... toCmdCodes) {
+    for (String i : toCmdCodes) {
+      throwIfBadCommandCode(i);
+      Object existing = commands.put(i, reaction);
+      if (existing != null) {
+        throw new IllegalStateException("Another registered for " + i);
+      }
     }
   }
 
-  private void registerCommands(BotCommand... cmds) {
-    for (BotCommand i : cmds) {
-      registerCommand(i);
-    }
+  private static void throwIfBadCommandCode(String commandCode) {
+    checkNotNull(commandCode, "commandCode = null");
+    checkArgument(!commandCode.isEmpty(), "commandCode empty");
+    checkArgument(commandCode.length() == commandCode.strip().length(), "commandCode not stripped");
+    checkArgument(commandCode.length() <= COMMAND_CODE_MAX_LEN, "commandCode too long; max = %s", COMMAND_CODE_MAX_LEN);
   }
 
   @Override
@@ -94,12 +102,12 @@ final class Bot extends TelegramLongPollingBot {
         String text = msg.getText();
         Matcher mchr = ptrn.matcher(text);
         if (mchr.matches()) {
-          String id = mchr.group(1);
+          final String cmd = mchr.group(1);
           String tail = mchr.group(2);
-          String[] args = tail == null ? NO_ARGS : tail.trim().split("\\s+");
-          BotCommand cmd = commands.get(id);
-          if (cmd != null) {
-            cmd.received(this, msg.getFrom(), chat, args);
+          final String[] args = tail == null ? NO_ARGS : tail.trim().split("\\s+");
+          final BotReaction reaction = commands.get(cmd);
+          if (reaction != null) {
+            reaction.react(this, msg.getFrom(), chat, cmd, args);
             cared = true;
           }
         }
