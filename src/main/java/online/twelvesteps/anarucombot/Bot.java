@@ -30,6 +30,7 @@ final class Bot extends TelegramLongPollingBot {
   private final Map<String, BotCommand> commands = new HashMap<>(0, 1F);
 
   private Bot() {
+    System.out.println("Started on behalf of " + botname);
     bottoken = System.getenv(ENV_TOKEN);
     {
       String errLine
