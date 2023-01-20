@@ -15,6 +15,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -26,6 +28,9 @@ final class Bot extends TelegramLongPollingBot {
   private static final String ENV_NAME = "ANARUCOMBOTTOKEN";
 
   private static void usage() {
+    // to avoid reordering with printing to STDERR
+    try { Thread.sleep(10); }
+    catch(InterruptedException ignore) {}
     System.out.printf("""
             Usage: %s="$BOTTOKEN" java -jar anarucombot.jar [BOTNAME]
             BOTNAME - %s (default)
@@ -117,6 +122,9 @@ final class Bot extends TelegramLongPollingBot {
     return bottoken;
   }
 
+  private final long nextCommandReactionDelayThreshold = TimeUnit.SECONDS.toMillis(10);
+  private final AtomicLong lastCommandReactedAt = new AtomicLong();
+
   @Override
   public void onUpdateReceived(Update update) {
     if (update.hasMessage()) {
@@ -133,7 +141,11 @@ final class Bot extends TelegramLongPollingBot {
           final String[] args = tail == null ? NO_ARGS : tail.trim().split("\\s+");
           final BotCommandReaction reaction = commands.get(cmd);
           if (reaction != null) {
-            reaction.received(this, msg.getFrom(), chat, msg, cmd, args);
+            long now = System.currentTimeMillis();
+            long lastCommandReactedAt = this.lastCommandReactedAt.getAndSet(now);
+            if (nextCommandReactionDelayThreshold < now - lastCommandReactedAt) {
+              reaction.received(this, msg.getFrom(), chat, msg, cmd, args);
+            }
             cared = true;
           }
         }
