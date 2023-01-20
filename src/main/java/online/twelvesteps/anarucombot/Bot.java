@@ -22,35 +22,48 @@ import static online.twelvesteps.anarucombot.Stringers.strippedNotEmpty;
 
 @Slf4j
 final class Bot extends TelegramLongPollingBot {
-  private static final String ENV_TOKEN = "ANARUCOMBOTTOKEN";
+  private static final String DEFAULT_BOTNAME = "anarucombot";
+  private static final String ENV_NAME = "ANARUCOMBOTTOKEN";
+
+  private static void usage() {
+    System.out.printf("""
+            Usage: %s="$BOTTOKEN" java -jar anarucombot.jar [BOTNAME]
+            BOTNAME - %s (default)
+                      anarucomalfabot (mind the 'alfa')
+            """,
+        ENV_NAME,
+        DEFAULT_BOTNAME);
+  }
 
   public static void main(String... args) throws Exception {
-    String bottoken = System.getenv(ENV_TOKEN);
+    String botname = args.length >= 1 ? args[0] : DEFAULT_BOTNAME;
+    String bottoken = System.getenv(ENV_NAME);
     {
       String errLine
-          = bottoken == null ? "No " + ENV_TOKEN + " environment variable value found"
-          : bottoken.isEmpty() ? ENV_TOKEN + " environment variable is blank"
-          : bottoken.length() != bottoken.strip().length() ? ENV_TOKEN + " environment variable is not stripped"
+          = bottoken == null ? "No " + ENV_NAME + " environment variable value found"
+          : bottoken.isEmpty() ? ENV_NAME + " environment variable is blank"
+          : bottoken.length() != bottoken.strip().length() ? ENV_NAME + " environment variable is not stripped"
           : null;
       if (errLine != null) {
-        System.err.println(errLine
-            + "\nUsage: " + ENV_TOKEN + "=\"$TOKEN\" java -jar anarucombot.jar");
+        System.err.println(errLine);
+        usage();
         System.exit(127);
       }
     }
-    Bot theBot = new Bot(bottoken);
-    System.out.println("Started on behalf of " + theBot.botname);
+    Bot theBot = new Bot(botname, bottoken);
+    System.out.println("Started on behalf of " + theBot.getBotUsername());
     new TelegramBotsApi(DefaultBotSession.class).registerBot(theBot);
     User user = theBot.getMe();
     log.info("The bot is authorized: " + Stringers.toString(user));
-    if (!theBot.botname.equals(user.getUserName())) {
-      System.out.printf("""
+    if (!theBot.getBotUsername().equals(user.getUserName())) {
+      System.err.printf("""
           Wrong bot!
           Started on behalf of %s,
           but authorized as %s.
           Terminated
           """,
-          theBot.botname, user.getUserName());
+          theBot.getBotUsername(), user.getUserName());
+      usage();
       System.exit(126);
     }
     theBot.execute(new SetMyCommands(
@@ -63,13 +76,15 @@ final class Bot extends TelegramLongPollingBot {
       -1001636629132L, "Прожарка бота",
       -1001640782633L, "АНА Онлайн");
   private static final String[] NO_ARGS = new String[0];
-  private final String bottoken;
-  private final String botname = "anarucomalfabot";
-  private final Pattern ptrn = Pattern.compile("^/(\\w+)(?:@" + botname + ")?(.+)?$");
   private final LinkedHashMap<String, BotCommandReaction> commands = new LinkedHashMap<>(0, 1F);
+  private final String bottoken;
+  private final String botname;
+  private final Pattern ptrn;
 
-  private Bot(String bottoken) {
+  private Bot(String botname, String bottoken) {
+    this.botname  = strippedNotEmpty(botname , "botname" );
     this.bottoken = strippedNotEmpty(bottoken, "bottoken");
+    ptrn = Pattern.compile("^/(\\w+)(?:@" + botname + ")?(.+)?$");
     List<BotCommandReaction> commands = List.of(
         new BotCommandReaction("1"    , "Что такое АНА?"             , new ReplaceWithMarkdownResourceReaction("1_what_is"      )),
         new BotCommandReaction("2"    , "Утверждение цели АНА"       , new ReplaceWithMarkdownResourceReaction("2_the_goal"     )),
@@ -79,9 +94,9 @@ final class Bot extends TelegramLongPollingBot {
         new BotCommandReaction("6"    , "Приглашаем бога"            , new ReplaceWithMarkdownResourceReaction("6_prey_opening" )),
         new BotCommandReaction("7"    , "Молитва о душевном покое"   , new ReplaceWithMarkdownResourceReaction("7_prey_serenity")),
         new BotCommandReaction("8"    , "Ссылки"                     , new BotReactionChain(List.of(
-                                                                       new DeleteCommandMessageReaction       (                 ),
                                                                        new SendMarkdownResourceReaction       ("8_links"        ),
-                                                                       new SendMarkdownResourceReaction       ("9_ads"          )))),
+                                                                       new SendMarkdownResourceReaction       ("9_ads"          ),
+                                                                       new DeleteCommandMessageReaction       (                 )))),
         new BotCommandReaction("help" , "Покажу, что могу (но позже)", new SendMarkdownResourceReaction       ("help"           )),
         new BotCommandReaction("start", "Включи меня"                , new SendMarkdownResourceReaction       ("start"          )));
     for (BotCommandReaction i : commands) {
