@@ -1,6 +1,7 @@
 package online.twelvesteps.anarucombot;
 
 import org.telegram.telegrambots.meta.api.objects.Chat;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 
@@ -26,9 +27,13 @@ final class BotReactionChain extends BotReaction {
   }
 
   @Override
-  protected void react(AbsSender sendingBackAgent, User fromUser, Chat fromChat, String cmd, String... args) {
+  protected void react(
+      AbsSender sendingBackAgent,
+      User fromUser, Chat fromChat,
+      Message msg, String cmd,
+      String... args) {
     for (BotReaction i : chain) {
-      i.react(sendingBackAgent, fromUser, fromChat, cmd, args);
+      i.react(sendingBackAgent, fromUser, fromChat, msg, cmd, args);
     }
   }
 

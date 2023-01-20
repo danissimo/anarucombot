@@ -3,6 +3,7 @@ package online.twelvesteps.anarucombot;
 import lombok.extern.slf4j.Slf4j;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Chat;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -41,7 +42,7 @@ final class SendMarkdownResourceReaction extends BotReaction {
   }
 
   @Override
-  public void react(AbsSender sendingBackAgent, User fromUser, Chat fromChat, String cmd, String... args) {
+  public void react(AbsSender sendingBackAgent, User fromUser, Chat fromChat, Message msg, String cmd, String... args) {
     SendMessage reply = new SendMessage();
     reply.setChatId(fromChat.getId());
     reply.enableMarkdown(true);
@@ -51,7 +52,7 @@ final class SendMarkdownResourceReaction extends BotReaction {
       sendingBackAgent.execute(reply);
     } catch (TelegramApiException ex) {
       log.error(String.format(
-          "received: %s sent to %s msg %s with args %s",
+          "react: %s sent to %s msg %s with args %s",
           Stringers.toString(fromUser), Stringers.toString(fromChat), cmd, Arrays.toString(args)),
           ex);
     }
