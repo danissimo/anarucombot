@@ -2,6 +2,7 @@
 
 TAG="$1"
 TOKEN="$2"
+[ -z "$TAG" ] && TAG=latest
 [ -z "$TOKEN" ] && TOKEN="$ANARUCOMBOTTOKEN"
 
 if [ -z "$TAG" ] || [ -z "$TOKEN" ]; then
@@ -17,6 +18,9 @@ fi
 IMAGE="danissimo/anarucombot:$TAG"
 CONT=anarucombot
 
+if [ "$TAG" = latest ]; then
+  docker rmi -f "$IMAGE"
+fi
 if [ -z "$(docker images -q "$IMAGE")" ] \
 && ! docker pull "$IMAGE"; then
   echo "Failed to pull image: $IMAGE"
