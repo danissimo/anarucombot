@@ -1,31 +1,46 @@
 package online.twelvesteps.anarucombot;
 
-import org.telegram.telegrambots.meta.api.objects.Chat;
-import org.telegram.telegrambots.meta.api.objects.Message;
-import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
-import org.telegram.telegrambots.meta.bots.AbsSender;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static online.twelvesteps.anarucombot.ReceivedBotCommand.checkCodeLegal;
+import static online.twelvesteps.anarucombot.Stringers.strippedNotEmpty;
 
-final class BotCommandReaction extends BotCommand {
-  private final BotReaction reaction;
+final class BotCommandReaction<C extends CommandExecutionContext> {
+  private static final int COMMAND_CODE_MAX_LEN = 31; // mind the leading slash
 
-  public BotCommandReaction(String code, String dscr, BotReaction reaction) {
-    super(checkCodeLegal(code), dscr);
+  private final String commandCode;
+  private final BotCommand command;
+  private final BotReaction<?, C> reaction;
+
+  public static String checkCodeLegal(String code, String argName) {
+    checkNotNull(code, "%s = null", argName);
+    checkArgument(!code.isEmpty(), "%s empty", argName);
+    checkArgument(code.length() == code.strip().length(), "%s not stripped", argName);
+    checkArgument(code.length() <= COMMAND_CODE_MAX_LEN, "%s too long; max = %s", argName, COMMAND_CODE_MAX_LEN);
+    return code;
+  }
+
+  public BotCommandReaction(
+      String commandCode,
+      String commandDescription,
+      BotReaction<?, C> reaction) {
+    this.commandCode = checkCodeLegal(commandCode, "commandCode");
+    command
+        = commandDescription == null ? null
+        : new BotCommand(commandCode, strippedNotEmpty(commandDescription, "commandDescription"));
     this.reaction = checkNotNull(reaction);
   }
 
-  public BotReaction reaction() {
-    return reaction;
+  public String commandCode() {
+    return commandCode;
   }
 
-  public void received(
-      AbsSender sendingBackAgent,
-      User fromUser, Chat fromChat,
-      Message msg, String cmd,
-      String... args) {
-    reaction().react(sendingBackAgent, fromUser, fromChat, msg, cmd, args);
+  public BotCommand command() {
+    return command;
+  }
+
+  public BotReaction<?, C> reaction() {
+    return reaction;
   }
 }

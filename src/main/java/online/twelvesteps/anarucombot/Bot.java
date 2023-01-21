@@ -1,31 +1,83 @@
 package online.twelvesteps.anarucombot;
 
 import lombok.extern.slf4j.Slf4j;
+import online.twelvesteps.anarucombot.CommandExecutionContext.UpdateKind;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
+import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeAllChatAdministrators;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
+import static online.twelvesteps.anarucombot.Stringers.stringify;
 import static online.twelvesteps.anarucombot.Stringers.strippedNotEmpty;
 
 @Slf4j
 final class Bot extends TelegramLongPollingBot {
   private static final String DEFAULT_BOTNAME = "anarucombot";
   private static final String ENV_NAME = "ANARUCOMBOTTOKEN";
+
+  public static void main(String... args) throws Exception {
+    EasyCommandReactionBuilder<EasyExecutionContext> commands = buildReactions();
+    Bot theBot = new Bot(getBotname(args), getBottoken(), commands.reactions());
+    System.out.println("Started on behalf of " + theBot.getBotUsername());
+    new TelegramBotsApi(DefaultBotSession.class).registerBot(theBot);
+
+    User user = theBot.getMe();
+    log.info("The bot is authorized: " + stringify(user));
+    if (!theBot.getBotUsername().equals(user.getUserName())) {
+      System.err.printf("""
+          Wrong bot!
+          Started on behalf of %s,
+          but authorized as %s.
+          Terminated
+          """,
+          theBot.getBotUsername(), user.getUserName());
+      usage();
+      System.exit(126);
+    }
+
+    // tell users supported commands
+    theBot.execute(new SetMyCommands(
+        commands.commandsWithDescription(),
+        new BotCommandScopeAllChatAdministrators(),
+        null));
+  }
+
+  private static EasyCommandReactionBuilder<EasyExecutionContext> buildReactions() {
+    return new EasyCommandReactionBuilder<>() {
+      {
+        // @formatter:off
+        bind("1", "Что такое АНА?"          , replaceWith("1_what_is"      ));
+        bind("2", "Утверждение цели АНА"    , replaceWith("2_the_goal"     ));
+        bind("3", "12 шагов АНА"            , replaceWith("3_steps"        ));
+        bind("4", "12 традиций АНА"         , replaceWith("4_traditions"   ));
+        bind("5", "Выход есть"              , replaceWith("5_solution"     ));
+        bind("6", "Приглашаем бога"         , replaceWith("6_prey_opening" ));
+        bind("7", "Молитва о душевном покое", replaceWith("7_prey_serenity"));
+        bind("8", "Ссылки"                  , replaceWith(chain(
+                                                 resource("8_links"        ),
+                                                 resource("9_ads"          ))));
+        // ----------------------------------------------------------------
+        bind("help" , "Покажу, что могу (но позже)", resource("help" ).ifReacted(clearTimestamp()));
+        bind("start", "Включи меня"                , resource("start").ifReacted(clearTimestamp()));
+        // @formatter:on
+      }
+    };
+  }
+
+  private static String getBotname(String... args) {
+    return args.length >= 1 ? args[0] : DEFAULT_BOTNAME;
+  }
 
   private static void usage() {
     // to avoid reordering with printing to STDERR
@@ -40,76 +92,34 @@ final class Bot extends TelegramLongPollingBot {
         DEFAULT_BOTNAME);
   }
 
-  public static void main(String... args) throws Exception {
-    String botname = args.length >= 1 ? args[0] : DEFAULT_BOTNAME;
+  private static String getBottoken() {
     String bottoken = System.getenv(ENV_NAME);
-    {
-      String errLine
-          = bottoken == null ? "No " + ENV_NAME + " environment variable value found"
-          : bottoken.isEmpty() ? ENV_NAME + " environment variable is blank"
-          : bottoken.length() != bottoken.strip().length() ? ENV_NAME + " environment variable is not stripped"
-          : null;
-      if (errLine != null) {
-        System.err.println(errLine);
-        usage();
-        System.exit(127);
-      }
-    }
-    Bot theBot = new Bot(botname, bottoken);
-    System.out.println("Started on behalf of " + theBot.getBotUsername());
-    new TelegramBotsApi(DefaultBotSession.class).registerBot(theBot);
-    User user = theBot.getMe();
-    log.info("The bot is authorized: " + Stringers.toString(user));
-    if (!theBot.getBotUsername().equals(user.getUserName())) {
-      System.err.printf("""
-          Wrong bot!
-          Started on behalf of %s,
-          but authorized as %s.
-          Terminated
-          """,
-          theBot.getBotUsername(), user.getUserName());
+    String errLine
+        = bottoken == null ? "No " + ENV_NAME + " environment variable value found"
+        : bottoken.isEmpty() ? ENV_NAME + " environment variable is blank"
+        : bottoken.length() != bottoken.strip().length() ? ENV_NAME + " environment variable is not stripped"
+        : null;
+    if (errLine != null) {
+      System.err.println(errLine);
       usage();
-      System.exit(126);
+      System.exit(127);
     }
-    theBot.execute(new SetMyCommands(
-        new ArrayList<>(theBot.commands.values()),
-        new BotCommandScopeAllChatAdministrators(),
-        null));
+    return bottoken;
   }
 
-  private static final Map<Long, String> TRUSTED_CHATS = Map.of(
+  private static final Map<Long, String> SERVED_CHATS = Map.of(
       -1001636629132L, "Прожарка бота",
       -1001640782633L, "АНА Онлайн");
-  private static final String[] NO_ARGS = new String[0];
-  private final LinkedHashMap<String, BotCommandReaction> commands = new LinkedHashMap<>(0, 1F);
+  private final EasyExecutionContext executionContext = new EasyExecutionContext(this);
+  private final Map<String, BotReaction<?, EasyExecutionContext>> reactions;
   private final String bottoken;
   private final String botname;
-  private final Pattern ptrn;
 
-  private Bot(String botname, String bottoken) {
+  private Bot(String botname, String bottoken,
+      Map<String, BotReaction<?, EasyExecutionContext>> reactions) {
     this.botname  = strippedNotEmpty(botname , "botname" );
     this.bottoken = strippedNotEmpty(bottoken, "bottoken");
-    ptrn = Pattern.compile("^/(\\w+)(?:@" + botname + ")?(.+)?$");
-    List<BotCommandReaction> commands = List.of(
-        new BotCommandReaction("1"    , "Что такое АНА?"             , new ReplaceWithMarkdownResourceReaction("1_what_is"      )),
-        new BotCommandReaction("2"    , "Утверждение цели АНА"       , new ReplaceWithMarkdownResourceReaction("2_the_goal"     )),
-        new BotCommandReaction("3"    , "12 шагов АНА"               , new ReplaceWithMarkdownResourceReaction("3_steps"        )),
-        new BotCommandReaction("4"    , "12 традиций АНА"            , new ReplaceWithMarkdownResourceReaction("4_traditions"   )),
-        new BotCommandReaction("5"    , "Выход есть"                 , new ReplaceWithMarkdownResourceReaction("5_solution"     )),
-        new BotCommandReaction("6"    , "Приглашаем бога"            , new ReplaceWithMarkdownResourceReaction("6_prey_opening" )),
-        new BotCommandReaction("7"    , "Молитва о душевном покое"   , new ReplaceWithMarkdownResourceReaction("7_prey_serenity")),
-        new BotCommandReaction("8"    , "Ссылки"                     , new BotReactionChain(List.of(
-                                                                       new SendMarkdownResourceReaction       ("8_links"        ),
-                                                                       new SendMarkdownResourceReaction       ("9_ads"          ),
-                                                                       new DeleteCommandMessageReaction       (                 )))),
-        new BotCommandReaction("help" , "Покажу, что могу (но позже)", new SendMarkdownResourceReaction       ("help"           )),
-        new BotCommandReaction("start", "Включи меня"                , new SendMarkdownResourceReaction       ("start"          )));
-    for (BotCommandReaction i : commands) {
-      Object existing = this.commands.put(i.getCommand(), i);
-      if (existing != null) {
-        throw new IllegalStateException("Another registered for " + i);
-      }
-    }
+    this.reactions = checkNotNull(reactions, "reactions = null");
   }
 
   @Override
@@ -122,51 +132,60 @@ final class Bot extends TelegramLongPollingBot {
     return bottoken;
   }
 
-  private final long nextCommandReactionDelayThreshold = TimeUnit.SECONDS.toMillis(10);
-  private final AtomicLong lastCommandReactedAt = new AtomicLong();
-
   @Override
   public void onUpdateReceived(Update update) {
-    if (update.hasMessage()) {
-      boolean cared = false;
-      final Message msg = update.getMessage();
-      final Chat chat = msg.getChat();
-      if (msg.isCommand() && TRUSTED_CHATS.containsKey(chat.getId())) {
-        assert msg.hasText() : "since msg.isCommand() == true";
-        String text = msg.getText();
-        Matcher mchr = ptrn.matcher(text);
-        if (mchr.matches()) {
-          final String cmd = mchr.group(1);
-          String tail = mchr.group(2);
-          final String[] args = tail == null ? NO_ARGS : tail.trim().split("\\s+");
-          final BotCommandReaction reaction = commands.get(cmd);
-          if (reaction != null) {
-            long now = System.currentTimeMillis();
-            long lastCommandReactedAt = this.lastCommandReactedAt.getAndSet(now);
-            if (nextCommandReactionDelayThreshold < now - lastCommandReactedAt) {
-              reaction.received(this, msg.getFrom(), chat, msg, cmd, args);
-            }
-            cared = true;
+    UpdateKind updateKind = executionContext.update(update);
+    switch (updateKind) {
+      case COMMAND -> {
+        final Message msg = update.getMessage();
+        final Chat chat = msg.getChat();
+        BotReaction<?, EasyExecutionContext> reaction
+            = reactions.get(executionContext.getReceivedCommand());
+        if (executionContext.getReceivedTargetBotname() != null
+            && !executionContext.getReceivedTargetBotname().equals(getBotUsername())) {
+          log.warn("onUpdateReceived: unexpected bot: [{}] sent to {} by {}",
+              msg.getText(),
+              stringify(chat),
+              stringify(msg.getFrom()));
+        } else if (!SERVED_CHATS.containsKey(chat.getId())) {
+          log.warn("onUpdateReceived: command from unsupported chat: [{}] sent to {} by {}",
+              msg.getText(),
+              stringify(chat),
+              stringify(msg.getFrom()));
+        } else if (reaction == null) {
+          log.warn("onUpdateReceived: no reaction for command: [{}] sent to {} by {}",
+              msg.getText(),
+              stringify(chat),
+              stringify(msg.getFrom()));
+        } else {
+          try {
+            reaction.react(executionContext);
+          } catch (TelegramApiException ex) {
+            log.error(format("onUpdateReceived: [%s] sent to %s by %s",
+                msg.getText(),
+                stringify(chat),
+                stringify(msg.getFrom())),
+                ex);
           }
         }
-        if (!cared) {
-          log.warn(String.format(
-              "onUpdateReceived: command was not taken care: %s sent to %s msg %s",
-              Stringers.toString(msg.getFrom()),
-              Stringers.toString(chat),
-              msg.getText()));
-        }
-      } else {
-        if (msg.isCommand()) {
-          log.warn(String.format(
-              "onUpdateReceived: received from untrusted chat: %s sent to %s msg %s",
-              Stringers.toString(msg.getFrom()),
-              Stringers.toString(chat),
-              Stringers.first(128).of(msg.getText())));
+      }
+      case TEXT    -> { /* swallow */ }
+      case MESSAGE -> {
+        final Message msg = update.getMessage();
+        log.info("onUpdateReceived: non–text msg sent to {} by {}",
+            stringify(msg.getChat()),
+            stringify(msg.getFrom()));
+      }
+      default -> {
+        if (!update.hasCallbackQuery()) {
+          log.info("onUpdateReceived: no message in update: {}", update);
+        } else {
+          CallbackQuery query = update.getCallbackQuery();
+          log.info("onUpdateReceived: callback query: {} sent by {}",
+              stringify(query),
+              stringify(query.getFrom()));
         }
       }
-    } else {
-      log.warn("onUpdateReceived: no message in update: {}", update);
     }
   }
 }

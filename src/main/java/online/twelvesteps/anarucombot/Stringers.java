@@ -1,6 +1,7 @@
 package online.twelvesteps.anarucombot;
 
 import lombok.extern.slf4j.Slf4j;
+import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
@@ -34,6 +35,10 @@ final class Stringers {
         : "";
   }
 
+  public static String stringify(User user) {
+    return toString(user);
+  }
+
   public static String toString(User user) {
     if (user == null) {
       return  null;
@@ -49,6 +54,10 @@ final class Stringers {
   private static final String CODE_GROUP      = "group"     ;
   private static final String CODE_SUPERGROUP = "supergroup";
   private static final String CODE_CHANNEL    = "channel"   ;
+
+  public static String stringify(Chat chat) {
+    return toString(chat);
+  }
 
   public static String toString(Chat chat) {
     if (chat == null) {
@@ -68,6 +77,14 @@ final class Stringers {
         + (username.isEmpty() ? "" : '@' + username   )
         + (    name.isEmpty() ? "" : '[' + name  + ']')
         + (   title.isEmpty() ? "" : '[' + title + ']');
+  }
+
+  public static String stringify(CallbackQuery query) {
+    return toString(query);
+  }
+
+  public static String toString(CallbackQuery query) {
+    return "Q#" + query.getId() + '[' + query.getData() + ']';
   }
 
   public static String toString(InlineKeyboardButton btn) {
