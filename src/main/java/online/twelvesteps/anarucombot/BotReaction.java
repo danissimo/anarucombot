@@ -15,9 +15,9 @@ import static online.twelvesteps.anarucombot.Stringers.stringify;
 abstract class BotReaction<
     R extends BotReaction<R, C>,
     C extends CommandExecutionContext> {
-  private Predicate<C> predicate = ctc -> true;
-  private Consumer<C> signaller = ctx -> {};
-  private boolean quiet;
+  private Predicate<C> reactIf = ctc -> true;
+  private Consumer<C> ifReacted = ctx -> {};
+  private boolean swallowAndLog;
 
   protected R self() {
     @SuppressWarnings("unchecked")
@@ -26,31 +26,26 @@ abstract class BotReaction<
   }
 
   public R reactIf(Predicate<C> predicate) {
-    this.predicate = checkNotNull(predicate);
+    this.reactIf = checkNotNull(predicate);
     return self();
   }
 
-  public R reactAlways() {
-    this.predicate = ctx -> true;
+  public R swallowAndLog() {
+    swallowAndLog = true;
     return self();
   }
 
-  public R quiet() {
-    quiet = true;
-    return self();
-  }
-
-  public R ifReacted(Consumer<C> signaller) {
-    this.signaller = checkNotNull(signaller);
+  public R ifReacted(Consumer<C> ifReacted) {
+    this.ifReacted = checkNotNull(ifReacted);
     return self();
   }
 
   public void react(C ctx) throws TelegramApiException {
-    if (predicate.test(ctx)) {
+    if (reactIf.test(ctx)) {
       try {
         doReact(ctx);
       } catch (TelegramApiException ex) {
-        if (!quiet) {
+        if (!swallowAndLog) {
           throw ex;
         }
         final Message msg = ctx.getUpdate().getMessage();
@@ -60,7 +55,7 @@ abstract class BotReaction<
             stringify(msg.getFrom())),
             ex);
       }
-      signaller.accept(ctx);
+      ifReacted.accept(ctx);
     }
   }
 

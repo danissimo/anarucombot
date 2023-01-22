@@ -10,23 +10,27 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 import static online.twelvesteps.anarucombot.BotCommandReaction.checkCodeLegal;
 
-abstract class CommandReactionBuilder<C extends CommandExecutionContext> {
-  protected abstract BiFunction<IOException, String, byte[]> defaultBinaryContentSupplier();
+class CommandReactionBuilder<C extends CommandExecutionContext> {
+  protected BiFunction<IOException, String, byte[]> defaultBinaryContentSupplier() {
+    return (ex, name) -> {
+      throw new AssertionError("No default content for " + name, ex);
+    };
+  }
 
-  protected Supplier<byte[]> binaryResourceContentLazyLoader(
+  protected Function<C, byte[]> binaryResourceContentLazyLoader(
       String name, BiFunction<IOException, String, byte[]> ifCantLoad) {
-    return new BinaryResourceContentSupplier(name, ifCantLoad);
+    return ctx -> new BinaryResourceContentSupplier(name, ifCantLoad).get();
   }
 
-  protected Supplier<String> stringSupplier(final Supplier<byte[]> binary, final Charset charset) {
-    return () -> new String(binary.get(), charset);
+  protected Function<C, String> stringSupplier(final Function<C, byte[]> binary, final Charset charset) {
+    return ctx -> new String(binary.apply(ctx), charset);
   }
 
-  protected Supplier<String> utf8StringResourceContentLazyLoaderOrDefaultContent(String name) {
+  protected Function<C, String> utf8StringResourceContentLazyLoaderOrDefaultContent(String name) {
     return stringSupplier(
         binaryResourceContentLazyLoader(name, defaultBinaryContentSupplier()),
         StandardCharsets.UTF_8);
@@ -34,6 +38,10 @@ abstract class CommandReactionBuilder<C extends CommandExecutionContext> {
 
   protected SendMessageReaction<C> sendMessage() {
     return new SendMessageReaction<>();
+  }
+
+  protected SendChatActionReaction<C> sendChatAction() {
+    return new SendChatActionReaction<>();
   }
 
   protected DeleteMessageReaction<C> deleteMessage() {

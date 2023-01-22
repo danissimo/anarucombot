@@ -2,22 +2,16 @@ package online.twelvesteps.anarucombot;
 
 import org.telegram.telegrambots.meta.bots.AbsSender;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 final class EasyExecutionContext extends CommandExecutionContext {
-  private long lastCommandReactedAt;
+  private final AtomicLong lastCommandReactedAt = new AtomicLong();
 
   public EasyExecutionContext(AbsSender communicatingAgent) {
     super(communicatingAgent);
   }
 
-  public long lastCommandReactedAt() {
+  public AtomicLong getLastCommandReactedAt() {
     return lastCommandReactedAt;
-  }
-
-  public void lastCommandReactedAt(long lastCommandReactedAt) {
-    this.lastCommandReactedAt = lastCommandReactedAt;
-  }
-
-  public void lastCommandReactedNow() {
-    lastCommandReactedAt(System.currentTimeMillis());
   }
 }

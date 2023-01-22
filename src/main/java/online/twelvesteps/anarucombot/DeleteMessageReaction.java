@@ -8,7 +8,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 final class DeleteMessageReaction<C extends CommandExecutionContext>
 extends BotReaction<DeleteMessageReaction<C>, C> {
   @Override
-  protected void doReact(CommandExecutionContext ctx)
+  protected void doReact(C ctx)
   throws TelegramApiException {
     Message msg = ctx.getUpdate().getMessage();
     Chat chat = msg.getChat();

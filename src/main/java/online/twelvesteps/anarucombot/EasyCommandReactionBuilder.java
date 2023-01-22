@@ -3,7 +3,9 @@ package online.twelvesteps.anarucombot;
 import java.io.IOException;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
+import java.util.function.Function;
+
+import static java.lang.String.format;
 
 abstract class EasyCommandReactionBuilder<C extends EasyExecutionContext>
 extends CommandReactionBuilder<C> {
@@ -23,7 +25,7 @@ extends CommandReactionBuilder<C> {
   private static final String resourceRoot = "";
 
   @Override
-  protected Supplier<byte[]> binaryResourceContentLazyLoader(
+  protected Function<C, byte[]> binaryResourceContentLazyLoader(
       String name, BiFunction<IOException, String, byte[]> ifCantLoad) {
     return super.binaryResourceContentLazyLoader(resourceRoot + name + ".md", ifCantLoad);
   }
@@ -32,15 +34,33 @@ extends CommandReactionBuilder<C> {
     return sendMessage()
         .text(utf8StringResourceContentLazyLoaderOrDefaultContent(name))
         .markdown()
-          .noLinkPreview();
+        .noLinkPreview();
   }
+
+  private final long THRESHOLD = 5_000;
 
   BotReaction<?, C> replaceWith(BotReaction<?, C> reaction) {
     return chain(
-        reaction.quiet()
-            .reactIf(ctx -> System.currentTimeMillis() - ctx.lastCommandReactedAt() >= 10_000)
-            .ifReacted(EasyExecutionContext::lastCommandReactedNow),
-        deleteMessage().quiet());
+        sendMessage()
+            .replyToReceivedMessage()
+            .text(ctx -> {
+              long leftToWaitMillis = ctx.getLastCommandReactedAt().get() + THRESHOLD - System.currentTimeMillis();
+              int leftToWaitSecs = (int)Math.ceil(leftToWaitMillis / 1000F);
+              String leftToWaitStr = switch (leftToWaitSecs) {
+                case 1 -> "секунду";
+                case 2 -> "пару секунд";
+                case 3, 4 -> leftToWaitSecs + " секунды";
+                default -> leftToWaitSecs + " секунд";
+              };
+              return format("_Не так быстро, я не железный. Обратись снова через %s_", leftToWaitStr);
+            })
+            .markdown()
+            .reactIf(ctx -> System.currentTimeMillis() - ctx.getLastCommandReactedAt().get() < THRESHOLD),
+        chain(
+            reaction.swallowAndLog(),
+            deleteMessage().swallowAndLog())
+            .reactIf(ctx -> System.currentTimeMillis() - ctx.getLastCommandReactedAt().get() >= THRESHOLD)
+            .ifReacted(ctx -> ctx.getLastCommandReactedAt().set(System.currentTimeMillis())));
   }
 
   BotReaction<?, C> replaceWith(String name) {
@@ -48,6 +68,6 @@ extends CommandReactionBuilder<C> {
   }
 
   Consumer<C> clearTimestamp() {
-    return ctx -> ctx.lastCommandReactedAt(0);
+    return ctx -> ctx.getLastCommandReactedAt().set(0);
   }
 }
