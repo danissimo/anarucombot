@@ -10,7 +10,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 final class BotReactionsChain<Ctx extends CommandExecutionContext>
-extends BotReaction<BotReactionsChain<Ctx>, Ctx, Void> {
+extends BotReaction<BotReactionsChain<Ctx>, Ctx, List<Object>> {
   private final List<BotReaction<?, Ctx, ?>> chain;
 
   public BotReactionsChain() {
@@ -47,11 +47,11 @@ extends BotReaction<BotReactionsChain<Ctx>, Ctx, Void> {
   }
 
   @Override
-  protected Void doReact(Ctx ctx) throws TelegramApiException {
+  protected List<Object> doReact(Ctx ctx) throws TelegramApiException {
+    val result = new ArrayList<>(chain.size());
     for (BotReaction<?, Ctx, ?> i : chain) {
-      i.react(ctx);
+      result.add(i.react(ctx));
     }
-    return null;
+    return result;
   }
 }
-
