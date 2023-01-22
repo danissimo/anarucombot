@@ -38,8 +38,8 @@ class CommandReactionBuilder<Ctx extends CommandExecutionContext> {
         StandardCharsets.UTF_8);
   }
 
-  protected <Result> BotCustomReaction<Ctx, Result> customReaction() {
-    return new BotCustomReaction<>();
+  protected <Result> CustomBotReaction<Ctx, Result> customReaction() {
+    return new CustomBotReaction<>();
   }
 
   protected SendMessageReaction<Ctx> sendMessage() {
