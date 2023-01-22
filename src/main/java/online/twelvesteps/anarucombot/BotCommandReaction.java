@@ -6,12 +6,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static online.twelvesteps.anarucombot.Stringers.strippedNotEmpty;
 
-final class BotCommandReaction<C extends CommandExecutionContext> {
+final class BotCommandReaction<Ctx extends CommandExecutionContext> {
   private static final int COMMAND_CODE_MAX_LEN = 31; // mind the leading slash
 
   private final String commandCode;
   private final BotCommand command;
-  private final BotReaction<?, C> reaction;
+  private final BotReaction<?, Ctx, ?> reaction;
 
   public static String checkCodeLegal(String code, String argName) {
     checkNotNull(code, "%s = null", argName);
@@ -24,7 +24,7 @@ final class BotCommandReaction<C extends CommandExecutionContext> {
   public BotCommandReaction(
       String commandCode,
       String commandDescription,
-      BotReaction<?, C> reaction) {
+      BotReaction<?, Ctx, ?> reaction) {
     this.commandCode = checkCodeLegal(commandCode, "commandCode");
     command
         = commandDescription == null ? null
@@ -40,7 +40,7 @@ final class BotCommandReaction<C extends CommandExecutionContext> {
     return command;
   }
 
-  public BotReaction<?, C> reaction() {
+  public BotReaction<?, Ctx, ?> reaction() {
     return reaction;
   }
 }

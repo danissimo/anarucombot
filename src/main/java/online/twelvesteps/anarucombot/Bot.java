@@ -111,12 +111,12 @@ final class Bot extends TelegramLongPollingBot {
       -1001636629132L, "Прожарка бота",
       -1001640782633L, "АНА Онлайн");
   private final EasyExecutionContext executionContext = new EasyExecutionContext(this);
-  private final Map<String, BotReaction<?, EasyExecutionContext>> reactions;
+  private final Map<String, BotReaction<?, EasyExecutionContext, ?>> reactions;
   private final String bottoken;
   private final String botname;
 
   private Bot(String botname, String bottoken,
-      Map<String, BotReaction<?, EasyExecutionContext>> reactions) {
+      Map<String, BotReaction<?, EasyExecutionContext, ?>> reactions) {
     this.botname  = strippedNotEmpty(botname , "botname" );
     this.bottoken = strippedNotEmpty(bottoken, "bottoken");
     this.reactions = checkNotNull(reactions, "reactions = null");
@@ -139,7 +139,7 @@ final class Bot extends TelegramLongPollingBot {
       case COMMAND -> {
         final Message msg = update.getMessage();
         final Chat chat = msg.getChat();
-        BotReaction<?, EasyExecutionContext> reaction
+        BotReaction<?, EasyExecutionContext, ?> reaction
             = reactions.get(executionContext.getReceivedCommand());
         if (executionContext.getReceivedTargetBotname() != null
             && !executionContext.getReceivedTargetBotname().equals(getBotUsername())) {

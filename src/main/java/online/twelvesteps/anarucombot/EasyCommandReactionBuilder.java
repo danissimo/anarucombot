@@ -1,14 +1,23 @@
 package online.twelvesteps.anarucombot;
 
+import lombok.val;
+import org.telegram.telegrambots.meta.api.objects.Message;
+
 import java.io.IOException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-abstract class EasyCommandReactionBuilder<C extends EasyExecutionContext>
-extends CommandReactionBuilder<C> {
+abstract class EasyCommandReactionBuilder<Ctx extends EasyExecutionContext>
+extends CommandReactionBuilder<Ctx> {
   @Override
   protected BiFunction<IOException, String, byte[]> defaultBinaryContentSupplier() {
     return (ex, name) -> {
@@ -25,49 +34,83 @@ extends CommandReactionBuilder<C> {
   private static final String resourceRoot = "";
 
   @Override
-  protected Function<C, byte[]> binaryResourceContentLazyLoader(
+  protected Function<Ctx, byte[]> binaryResourceContentLazyLoader(
       String name, BiFunction<IOException, String, byte[]> ifCantLoad) {
     return super.binaryResourceContentLazyLoader(resourceRoot + name + ".md", ifCantLoad);
   }
 
-  BotReaction<?, C> resource(String name) {
+  SendMessageReaction<Ctx> resource(String name) {
     return sendMessage()
         .text(utf8StringResourceContentLazyLoaderOrDefaultContent(name))
         .markdown()
         .noLinkPreview();
   }
 
+  private static final ScheduledExecutorService TIMER
+      = Executors.newScheduledThreadPool(1,
+      new ThreadFactory() {
+        private final AtomicInteger threadNumber = new AtomicInteger();
+        @Override public Thread newThread(Runnable r) {
+          Thread t = new Thread(r, "timer#" + threadNumber.getAndIncrement());
+          t.setDaemon(true);
+          return t;
+        }
+      });
   private final long THRESHOLD = 5_000;
 
-  BotReaction<?, C> replaceWith(BotReaction<?, C> reaction) {
-    return chain(
-        sendMessage()
-            .replyToReceivedMessage()
-            .text(ctx -> {
-              long leftToWaitMillis = ctx.getLastCommandReactedAt().get() + THRESHOLD - System.currentTimeMillis();
-              int leftToWaitSecs = (int)Math.ceil(leftToWaitMillis / 1000F);
-              String leftToWaitStr = switch (leftToWaitSecs) {
-                case 1 -> "секунду";
-                case 2 -> "пару секунд";
-                case 3, 4 -> leftToWaitSecs + " секунды";
-                default -> leftToWaitSecs + " секунд";
-              };
-              return format("_Не так быстро, я не железный. Обратись снова через %s_", leftToWaitStr);
-            })
-            .markdown()
-            .reactIf(ctx -> System.currentTimeMillis() - ctx.getLastCommandReactedAt().get() < THRESHOLD),
-        chain(
-            reaction.swallowAndLog(),
-            deleteMessage().swallowAndLog())
-            .reactIf(ctx -> System.currentTimeMillis() - ctx.getLastCommandReactedAt().get() >= THRESHOLD)
-            .ifReacted(ctx -> ctx.getLastCommandReactedAt().set(System.currentTimeMillis())));
+  BotReaction<?, Ctx, Void> replaceWith(BotReaction<?, Ctx, ?> reaction) {
+    Function<Ctx, String> text = ctx -> {
+      long lastReactedAt = ctx.getLastCommandReactedAt().get();
+      long sinceLastReacted = System.currentTimeMillis() - lastReactedAt;
+      long leftToWaitMillis = THRESHOLD - sinceLastReacted;
+      int leftToWaitSecs = (int)Math.ceil(leftToWaitMillis / 1000F);
+      leftToWaitSecs = Integer.max(1, leftToWaitSecs);
+      String leftToWaitStr = switch (leftToWaitSecs) {
+        case 1 -> "секунду";
+        case 2 -> "пару секунд";
+        case 3, 4 -> leftToWaitSecs + " секунды";
+        default -> leftToWaitSecs + " секунд";
+      };
+      return format("_Не так быстро, я не железный.\nОбратись через %s_.", leftToWaitStr);
+    };
+
+    val faulty = sendMessage()
+        .replyToReceivedMessage()
+        .text(text)
+        .markdown()
+        .logFailure();
+
+    val successive = chain(
+        reaction.logFailure(),
+        deleteMessage().logFailure());
+
+    return this.<Void>customReaction()
+        .body((final Ctx ctx) -> {
+          final AtomicLong lastReactedAt = ctx.getLastCommandReactedAt();
+          final long sinceLastReacted = System.currentTimeMillis() - lastReactedAt.get();
+          if (sinceLastReacted >= THRESHOLD) {
+            successive.react(ctx);
+            lastReactedAt.set(System.currentTimeMillis());
+          } else {
+            final Message msg = faulty.react(ctx);
+            if (msg != null) {
+              final int commandId = ctx.getUpdate().getMessage().getMessageId();
+              final int replyId = msg.getMessageId();
+              val cleanup = chain(
+                  deleteMessage().msgId(ignore -> commandId).logFailure(),
+                  deleteMessage().msgId(ignore -> replyId).logFailure());
+              TIMER.schedule(() -> cleanup.react(ctx), 4_000, MILLISECONDS);
+            }
+          }
+          return null;
+        });
   }
 
-  BotReaction<?, C> replaceWith(String name) {
+  BotReaction<?, Ctx, Void> replaceWith(String name) {
     return replaceWith(resource(name));
   }
 
-  Consumer<C> clearTimestamp() {
+  Consumer<Ctx> clearTimestamp() {
     return ctx -> ctx.getLastCommandReactedAt().set(0);
   }
 }

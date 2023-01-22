@@ -13,37 +13,38 @@ import static online.twelvesteps.anarucombot.Stringers.stringify;
 
 @Slf4j
 abstract class BotReaction<
-    R extends BotReaction<R, C>,
-    C extends CommandExecutionContext> {
-  private Predicate<C> reactIf = ctc -> true;
-  private Consumer<C> ifReacted = ctx -> {};
+    Reaction extends BotReaction<Reaction, Ctx, Result>,
+    Ctx extends CommandExecutionContext,
+    Result> {
+  private Predicate<Ctx> reactIf = ctc -> true;
+  private Consumer<Ctx> ifReacted = ctx -> {};
   private boolean swallowAndLog;
 
-  protected R self() {
+  protected Reaction self() {
     @SuppressWarnings("unchecked")
-    R self = (R)this;
+    Reaction self = (Reaction)this;
     return self;
   }
 
-  public R reactIf(Predicate<C> predicate) {
+  public Reaction reactIf(Predicate<Ctx> predicate) {
     this.reactIf = checkNotNull(predicate);
     return self();
   }
 
-  public R swallowAndLog() {
+  public Reaction logFailure() {
     swallowAndLog = true;
     return self();
   }
 
-  public R ifReacted(Consumer<C> ifReacted) {
+  public Reaction ifReacted(Consumer<Ctx> ifReacted) {
     this.ifReacted = checkNotNull(ifReacted);
     return self();
   }
 
-  public void react(C ctx) throws TelegramApiException {
+  public Result react(Ctx ctx) throws TelegramApiException {
     if (reactIf.test(ctx)) {
       try {
-        doReact(ctx);
+        return doReact(ctx);
       } catch (TelegramApiException ex) {
         if (!swallowAndLog) {
           throw ex;
@@ -57,7 +58,8 @@ abstract class BotReaction<
       }
       ifReacted.accept(ctx);
     }
+    return null;
   }
 
-  protected abstract void doReact(C ctx) throws TelegramApiException;
+  protected abstract Result doReact(Ctx ctx) throws TelegramApiException;
 }

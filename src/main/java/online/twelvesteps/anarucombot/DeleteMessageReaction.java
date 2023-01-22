@@ -1,22 +1,31 @@
 package online.twelvesteps.anarucombot;
 
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
-import org.telegram.telegrambots.meta.api.objects.Chat;
-import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-final class DeleteMessageReaction<C extends CommandExecutionContext>
-extends BotReaction<DeleteMessageReaction<C>, C> {
+import java.util.function.Function;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+
+final class DeleteMessageReaction<Ctx extends CommandExecutionContext>
+extends BotReaction<DeleteMessageReaction<Ctx>, Ctx, Boolean> {
+  private Function<Ctx, String> chatId = ctx -> String.valueOf(ctx.getUpdate().getMessage().getChat().getId());
+  private Function<Ctx, Integer> msgId = ctx -> ctx.getUpdate().getMessage().getMessageId();
+
+  public DeleteMessageReaction<Ctx> chatId(Function<Ctx, String> chatId) {
+    this.chatId = checkNotNull(chatId);
+    return self();
+  }
+
+  public DeleteMessageReaction<Ctx> msgId(Function<Ctx, Integer> msgId) {
+    this.msgId = checkNotNull(msgId);
+    return self();
+  }
+
   @Override
-  protected void doReact(C ctx)
-  throws TelegramApiException {
-    Message msg = ctx.getUpdate().getMessage();
-    Chat chat = msg.getChat();
-    ctx.getCommunicatingAgent()
-        .execute(
-            new DeleteMessage(
-                String.valueOf(chat.getId()),
-                msg.getMessageId()));
+  protected Boolean doReact(Ctx ctx) throws TelegramApiException {
+    return ctx.getCommunicatingAgent().execute(
+        new DeleteMessage(chatId.apply(ctx), msgId.apply(ctx)));
   }
 }
 

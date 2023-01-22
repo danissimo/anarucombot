@@ -14,77 +14,87 @@ import java.util.function.Function;
 
 import static online.twelvesteps.anarucombot.BotCommandReaction.checkCodeLegal;
 
-class CommandReactionBuilder<C extends CommandExecutionContext> {
+class CommandReactionBuilder<Ctx extends CommandExecutionContext> {
   protected BiFunction<IOException, String, byte[]> defaultBinaryContentSupplier() {
     return (ex, name) -> {
       throw new AssertionError("No default content for " + name, ex);
     };
   }
 
-  protected Function<C, byte[]> binaryResourceContentLazyLoader(
+  protected Function<Ctx, byte[]> binaryResourceContentLazyLoader(
       String name, BiFunction<IOException, String, byte[]> ifCantLoad) {
     return ctx -> new BinaryResourceContentSupplier(name, ifCantLoad).get();
   }
 
-  protected Function<C, String> stringSupplier(final Function<C, byte[]> binary, final Charset charset) {
+  protected Function<Ctx, String> stringSupplier(
+      final Function<Ctx, byte[]> binary,
+      final Charset charset) {
     return ctx -> new String(binary.apply(ctx), charset);
   }
 
-  protected Function<C, String> utf8StringResourceContentLazyLoaderOrDefaultContent(String name) {
+  protected Function<Ctx, String> utf8StringResourceContentLazyLoaderOrDefaultContent(String name) {
     return stringSupplier(
         binaryResourceContentLazyLoader(name, defaultBinaryContentSupplier()),
         StandardCharsets.UTF_8);
   }
 
-  protected SendMessageReaction<C> sendMessage() {
+  protected <Result> BotCustomReaction<Ctx, Result> customReaction() {
+    return new BotCustomReaction<>();
+  }
+
+  protected SendMessageReaction<Ctx> sendMessage() {
     return new SendMessageReaction<>();
   }
 
-  protected SendChatActionReaction<C> sendChatAction() {
+  protected SendChatActionReaction<Ctx> sendChatAction() {
     return new SendChatActionReaction<>();
   }
 
-  protected DeleteMessageReaction<C> deleteMessage() {
+  protected DeleteMessageReaction<Ctx> deleteMessage() {
     return new DeleteMessageReaction<>();
   }
 
-  protected BotReactionsChain<C> chain(
-      BotReaction<?, C> first,
-      BotReaction<?, C> second) {
-    return chain(first, second, (BotReaction<?, C>[])null);
+  protected BotReactionsChain<Ctx> chain() {
+    return new BotReactionsChain<>();
+  }
+
+  protected BotReactionsChain<Ctx> chain(
+      BotReaction<?, Ctx, ?> first,
+      BotReaction<?, Ctx, ?> second) {
+    return chain(first, second, (BotReaction<?, Ctx, ?>[])null);
   }
 
   @SafeVarargs
-  protected final BotReactionsChain<C> chain(
-      BotReaction<?, C> first,
-      BotReaction<?, C> second,
-      BotReaction<?, C>... rest) {
+  protected final BotReactionsChain<Ctx> chain(
+      BotReaction<?, Ctx, ?> first,
+      BotReaction<?, Ctx, ?> second,
+      BotReaction<?, Ctx, ?>... rest) {
     return new BotReactionsChain<>(first, second, rest);
   }
 
-  protected BotCommandReaction<C> bind(
+  protected BotCommandReaction<Ctx> bind(
       String commandCode,
-      BotReaction<?, C> reaction) {
+      BotReaction<?, Ctx, ?> reaction) {
     return bind(commandCode, null, reaction);
   }
 
-  protected BotCommandReaction<C> bind(
+  protected BotCommandReaction<Ctx> bind(
       String commandCode,
       String commandDescription,
-      BotReaction<?, C> reaction) {
+      BotReaction<?, Ctx, ?> reaction) {
     checkCodeLegal(commandCode, "commandCode");
     Object existing = reactions.put(commandCode, reaction);
     if (existing != null) {
       throw new IllegalStateException("Already bound: " + commandCode);
     }
-    BotCommandReaction<C> result = new BotCommandReaction<>(commandCode, commandDescription, reaction);
+    BotCommandReaction<Ctx> result = new BotCommandReaction<>(commandCode, commandDescription, reaction);
     if (commandDescription != null) {
       commandsWithDescriptions.add(result.command());
     }
     return result;
   }
 
-  private final HashMap<String, BotReaction<?, C>> reactions = new HashMap<>();
+  private final HashMap<String, BotReaction<?, Ctx, ?>> reactions = new HashMap<>();
   private final ArrayList<BotCommand> commandsWithDescriptions = new ArrayList<>();
 
   public List<BotCommand> commandsWithDescription() {
@@ -92,7 +102,7 @@ class CommandReactionBuilder<C extends CommandExecutionContext> {
     return commandsWithDescriptions;
   }
 
-  public Map<String, BotReaction<?, C>> reactions() {
+  public Map<String, BotReaction<?, Ctx, ?>> reactions() {
     return reactions;
   }
 }
