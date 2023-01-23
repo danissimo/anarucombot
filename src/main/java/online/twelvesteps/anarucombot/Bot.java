@@ -183,23 +183,16 @@ final class Bot extends TelegramLongPollingBot {
         final Chat chat = msg.getChat();
         BotReaction<?, EasyExecutionContext, ?> reaction
             = reactions.get(executionContext.getReceivedCommand());
+        String warnMsg = null;
         if (executionContext.getReceivedTargetBotname() != null
             && !executionContext.getReceivedTargetBotname().equals(getBotUsername())) {
-          log.warn("onUpdateReceived: unexpected bot: [{}] sent to {} by {}",
-              msg.getText(),
-              stringify(chat),
-              stringify(msg.getFrom()));
+          warnMsg = "onUpdateReceived: unexpected bot: [{}] sent to {} by {}; trying to delete the message";
         } else if (!SERVED_CHATS.containsKey(chat.getId())) {
-          log.warn("onUpdateReceived: command from unsupported chat: [{}] sent to {} by {}",
-              msg.getText(),
-              stringify(chat),
-              stringify(msg.getFrom()));
+          warnMsg = "onUpdateReceived: command from unsupported chat: [{}] sent to {} by {}";
         } else if (reaction == null) {
-          log.warn("onUpdateReceived: no reaction for [{}] sent to {} by {}",
-              msg.getText(),
-              stringify(chat),
-              stringify(msg.getFrom()));
-        } else {
+          warnMsg = "onUpdateReceived: no reaction for [{}] sent to {} by {}";
+        }
+        if (warnMsg == null) {
           try {
             reaction.react(executionContext);
           } catch (TelegramApiException ex) {
@@ -209,6 +202,9 @@ final class Bot extends TelegramLongPollingBot {
                 stringify(msg.getFrom()),
                 ex);
           }
+        } else {
+          log.warn(warnMsg, msg.getText(), stringify(chat), stringify(msg.getFrom()));
+          logFailure(() -> new DeleteMessageReaction<>().react(executionContext));
         }
       }
       case TEXT    -> { /* swallow */ }
@@ -274,7 +270,7 @@ final class Bot extends TelegramLongPollingBot {
       os.writeObject(what);
       log.info("Serialized to {}", to);
     } catch (IOException ex) {
-      log.error("Filed to serialize to {}", to, ex);
+      log.error("Failed to serialize to {}", to, ex);
     }
   }
 }
