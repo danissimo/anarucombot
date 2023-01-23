@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.HashSet;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -127,6 +128,9 @@ final class Bot extends TelegramLongPollingBot {
     return bottoken;
   }
 
+  private static final Map<Long, String> SERVING_BOTS = Map.of(
+      1881706076L, "anarucombot",
+      5842456956L, "anarucomalfabot");
   private static final Map<Long, String> SERVED_CHATS = Map.of(
       -1001636629132L, "Прожарка бота",
       -1001640782633L, "АНА Онлайн");
@@ -198,16 +202,29 @@ final class Bot extends TelegramLongPollingBot {
               + "\n\tleft chat member: {}",
               stringify(msg.getChat()),
               stringify(msg.getFrom()),
-              msg.getNewChatMembers().stream().map(Stringers::stringify).collect(toList()),
+              msg.getNewChatMembers() == null ? null
+                  : msg.getNewChatMembers().stream().map(Stringers::stringify).toList(),
               stringify(msg.getLeftChatMember()));
-          try {
-            new DeleteMessageReaction<>().react(executionContext);
-          } catch (TelegramApiException ex) {
-            log.error("onUpdateReceived: [{}] sent to {} by {}",
-                msg.getText(),
-                stringify(msg.getChat()),
-                stringify(msg.getFrom()),
-                ex);
+          // check if the message is about anarucombots ONLY delete it
+          val uniqueMemberIds = new HashSet<Long>();
+          if (msg.getNewChatMembers() != null) {
+            uniqueMemberIds.addAll(
+                msg.getNewChatMembers().stream().map(User::getId).toList());
+          }
+          if (msg.getLeftChatMember() != null) {
+            uniqueMemberIds.add(msg.getLeftChatMember().getId());
+          }
+          uniqueMemberIds.removeAll(SERVING_BOTS.keySet());
+          if (uniqueMemberIds.isEmpty()) {
+            try {
+              new DeleteMessageReaction<>().react(executionContext);
+            } catch (TelegramApiException ex) {
+              log.error("onUpdateReceived: [{}] sent to {} by {}",
+                  msg.getText(),
+                  stringify(msg.getChat()),
+                  stringify(msg.getFrom()),
+                  ex);
+            }
           }
         } else {
           log.info("onUpdateReceived: non–text msg sent to {} by {}",
