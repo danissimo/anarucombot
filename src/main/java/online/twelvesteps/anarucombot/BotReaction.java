@@ -8,7 +8,6 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.lang.String.format;
 import static online.twelvesteps.anarucombot.Stringers.stringify;
 
 @Slf4j
@@ -50,10 +49,10 @@ abstract class BotReaction<
           throw ex;
         }
         final Message msg = ctx.getUpdate().getMessage();
-        log.error(format("react on [%s] sent to %s by %s",
-            msg.getText(),
+        log.warn("react: in {} by {}: command: {}",
             stringify(msg.getChat()),
-            stringify(msg.getFrom())),
+            stringify(msg.getFrom()),
+            msg.getText(),
             ex);
       }
       ifReacted.accept(ctx);

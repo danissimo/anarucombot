@@ -1,19 +1,27 @@
 package online.twelvesteps.anarucombot;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import online.twelvesteps.anarucombot.CommandExecutionContext.UpdateKind;
+import org.telegram.telegrambots.bots.DefaultBotOptions;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.api.methods.adminrights.SetMyDefaultAdministratorRights;
 import org.telegram.telegrambots.meta.api.methods.commands.DeleteMyCommands;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
+import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatAdministrators;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Chat;
+import org.telegram.telegrambots.meta.api.objects.ChatMemberUpdated;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.adminrights.ChatAdministratorRights;
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMember;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeAllChatAdministrators;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeChatAdministrators;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
@@ -26,11 +34,19 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.Callable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.stream.Collectors.toMap;
+import static online.twelvesteps.anarucombot.Stringers.first;
 import static online.twelvesteps.anarucombot.Stringers.stringify;
 import static online.twelvesteps.anarucombot.Stringers.strippedNotEmpty;
 
@@ -159,9 +175,23 @@ final class Bot extends TelegramLongPollingBot {
 
   private Bot(String botname, String bottoken,
       Map<String, BotReaction<?, EasyExecutionContext, ?>> reactions) {
+    super(botOptions());
     this.botname  = strippedNotEmpty(botname , "botname" );
     this.bottoken = strippedNotEmpty(bottoken, "bottoken");
     this.reactions = checkNotNull(reactions, "reactions = null");
+  }
+
+  private static DefaultBotOptions botOptions() {
+    val options = new DefaultBotOptions();
+    options.setAllowedUpdates(Arrays.asList(
+        "message",
+        "edited_message",
+        "channel_post",
+        "edited_channel_post",
+        "callback_query",
+        "chat_member",
+        "chat_join_request"));
+    return options;
   }
 
   @Override
@@ -177,81 +207,164 @@ final class Bot extends TelegramLongPollingBot {
   @Override
   public void onUpdateReceived(Update update) {
     UpdateKind updateKind = executionContext.update(update);
+    if (updateKind == UpdateKind.UPDATE) {
+      if (update.hasEditedMessage()) {
+        updateKind = UpdateKind.MESSAGE;
+        if (update.getEditedMessage().hasText()) {
+          updateKind = UpdateKind.TEXT;
+        }
+      }
+    }
     switch (updateKind) {
       case COMMAND -> {
         final Message msg = update.getMessage();
         final Chat chat = msg.getChat();
-        BotReaction<?, EasyExecutionContext, ?> reaction
-            = reactions.get(executionContext.getReceivedCommand());
+        final User from = msg.getFrom();
+        final Map<Long, String> adminSet = getCachedAdminSetFor(chat.getId());
+        BotReaction<?, EasyExecutionContext, ?> reaction;
         String warnMsg = null;
+        Throwable err = null;
         if (executionContext.getReceivedTargetBotname() != null
-            && !executionContext.getReceivedTargetBotname().equals(getBotUsername())) {
-          warnMsg = "onUpdateReceived: unexpected bot: [{}] sent to {} by {}; trying to delete the message";
+        && !executionContext.getReceivedTargetBotname().equals(getBotUsername())) {
+          warnMsg = "onUpdateReceived: in {} by {}: unexpected bot: {}";
         } else if (!SERVED_CHATS.containsKey(chat.getId())) {
-          warnMsg = "onUpdateReceived: command from unsupported chat: [{}] sent to {} by {}";
-        } else if (reaction == null) {
-          warnMsg = "onUpdateReceived: no reaction for [{}] sent to {} by {}";
-        }
-        if (warnMsg == null) {
+          warnMsg = "onUpdateReceived: in {} by {}: command from unsupported chat: {}";
+        } else if (!adminSet.containsKey(from.getId())) {
+          warnMsg = "onUpdateReceived: in {} by {}: non-admin sent: {}";
+        } else if ((reaction = reactions.get(executionContext.getReceivedCommand())) == null) {
+          warnMsg = "onUpdateReceived: in {} by {}: no reaction for: {}";
+        } else {
           try {
             reaction.react(executionContext);
           } catch (TelegramApiException ex) {
-            log.warn("onUpdateReceived: failed to react to [{}] sent to {} by {}",
-                msg.getText(),
-                stringify(chat),
-                stringify(msg.getFrom()),
-                ex);
+            warnMsg = "onUpdateReceived: in {} by {}: failed to react to: {}";
+            err = ex;
           }
-        } else {
-          log.warn(warnMsg, msg.getText(), stringify(chat), stringify(msg.getFrom()));
+        }
+        if (warnMsg != null) {
+          warnMsg += "; deleting the message";
+          log.warn(warnMsg, stringify(chat), stringify(from), msg.getText(), err);
           logFailure(() -> new DeleteMessageReaction<>().react(executionContext));
         }
       }
-      case TEXT    -> { /* swallow */ }
+      case TEXT -> { /* swallow */ if (false) {
+        val msg = update.getMessage() == null ? update.getEditedMessage() : update.getMessage();
+        assert msg != null;
+        log.info("onUpdateReceived: in {} by {}: text: {}",
+            stringify(msg.getChat()),
+            stringify(msg.getFrom()),
+            first(128).of(msg.getText()));
+      }}
       case MESSAGE -> {
         final Message msg = update.getMessage();
-        if (msg.getNewChatMembers() != null || msg.getLeftChatMember() != null) {
-          log.info("onUpdateReceived: new or left chat members of {} by {}:"
+        final User mold = msg.getLeftChatMember();
+        final List<User> mnew = msg.getNewChatMembers();
+        if (!isEmpty(mnew) || mold != null) {
+          // NOTE: this is just a message that appear in the chat
+          // NOTE: actual update is communicated via Update object
+          log.info("onUpdateReceived: in {} by {}: msg about members:"
               + "\n\tnew chat members: {}"
               + "\n\tleft chat member: {}",
               stringify(msg.getChat()),
               stringify(msg.getFrom()),
-              msg.getNewChatMembers() == null ? null
-                  : msg.getNewChatMembers().stream().map(Stringers::stringify).toList(),
-              stringify(msg.getLeftChatMember()));
+              stringify(mnew),
+              stringify(mold));
           // check if the message is about anarucombots ONLY delete it
           val uniqueMemberIds = new HashSet<Long>();
-          if (msg.getNewChatMembers() != null) {
-            uniqueMemberIds.addAll(
-                msg.getNewChatMembers().stream().map(User::getId).toList());
+          if (!isEmpty(mnew)) {
+            uniqueMemberIds.addAll(mnew.stream().map(User::getId).toList());
           }
-          if (msg.getLeftChatMember() != null) {
-            uniqueMemberIds.add(msg.getLeftChatMember().getId());
+          if (mold != null) {
+            uniqueMemberIds.add(mold.getId());
           }
           uniqueMemberIds.removeAll(SERVING_BOTS.keySet());
           if (uniqueMemberIds.isEmpty()) {
             logFailure(() -> new DeleteMessageReaction<>().react(executionContext));
           }
         } else {
-          log.info("onUpdateReceived: non–text msg sent to {} by {}",
+          log.info("onUpdateReceived: in {} by {}: non–text msg",
               stringify(msg.getChat()),
               stringify(msg.getFrom()));
           serialize(update, "non-text-msg.ser");
         }
       }
-      default -> {
-        if (!update.hasCallbackQuery()) {
-          log.info("onUpdateReceived: no message in update: {}", update);
-          serialize(update, "service-update.ser");
-        } else {
+      case UPDATE -> {
+        if (update.hasMyChatMember()) {
+          // this bot was either added to or removed from a chat
+          ChatMemberUpdated msg = update.getMyChatMember();
+          log.info("onUpdateReceived: in {} by {}: this bot: {} ——> {}",
+              stringify(msg.getChat()),
+              stringify(msg.getFrom()),
+              stringify(msg.getOldChatMember()),
+              stringify(msg.getNewChatMember()));
+        } else if (update.hasChatMember()) {
+          // changes in chat members
+          final ChatMemberUpdated msg = update.getChatMember();
+          final Chat chat = msg.getChat();
+          final ChatMember mold = msg.getOldChatMember();
+          final ChatMember mnew = msg.getNewChatMember();
+          log.info("onUpdateReceived: in {} by {}: member: {} ——> {}",
+              stringify(chat),
+              stringify(msg.getFrom()),
+              stringify(mold),
+              stringify(mnew));
+          val admin = CHAT_MEMBER_STATUS_ADMIN; // just for brevity
+          val statuses = Set.of(mold.getStatus(), mnew.getStatus());
+          if (Objects.equals(mold.getUser().getId(), mnew.getUser().getId())
+          && !Objects.equals(mold.getStatus(), mnew.getStatus())
+          && statuses.contains(admin)) { // is any admin?
+            val chatId = chat.getId();
+            val adminId = mold.getUser().getId();
+            Map<Long, String> adminSet = getCachedAdminSetFor(chatId);
+            if (admin.equals(mold.getStatus())) {
+              adminSet.remove(adminId); // was admin
+            } else {
+              adminSet.put(adminId, stringify(mold.getUser())); // became admin
+            }
+          }
+        } else if (update.hasCallbackQuery()) {
           CallbackQuery query = update.getCallbackQuery();
-          log.info("onUpdateReceived: callback query: {} sent by {}",
+          // TODO: fix
+          log.info("onUpdateReceived: in {} by {}: callback query",
               stringify(query),
               stringify(query.getFrom()));
           serialize(update, "callback-query.ser");
+        } else {
+          log.info("onUpdateReceived: raw: {}", update);
+          serialize(update, "service-update.ser");
         }
       }
+      default -> throw new BadDeploymentError("No reaction for " + updateKind);
     }
+  }
+
+  private static final String CHAT_MEMBER_STATUS_ADMIN = "administrator";
+
+  // map is just for debugging purposes
+  private final LoadingCache<Long, Map<Long, String>> chatAdminSetCache
+      = CacheBuilder.newBuilder().build(new CacheLoader<>() {
+        @Override public Map<Long, String> load(Long chatId) throws TelegramApiException {
+          return execute(new GetChatAdministrators(String.valueOf(chatId)))
+              .stream()
+              .map(ChatMember::getUser)
+              .collect(toMap(User::getId, Stringers::stringify));
+        }
+      });
+
+  private Map<Long, String> getCachedAdminSetFor(Long chatId) {
+    try {
+      return chatAdminSetCache.getUnchecked(chatId);
+    } catch (UncheckedExecutionException ex) {
+      log.warn("getCachedAdminSetFor:"
+          + " Failed to load chat admin set for {}."
+          + " Postponed to the next retrieval",
+          chatId, ex.getCause());
+      return new HashMap<>(1, 1F);
+    }
+  }
+
+  private static boolean isEmpty(Collection<?> c) {
+    return c == null || c.isEmpty();
   }
 
   private static void logFailure(Callable<?> call) {
@@ -262,7 +375,7 @@ final class Bot extends TelegramLongPollingBot {
     }
   }
 
-  private void serialize(Serializable what, String to) {
+  private static void serialize(Serializable what, String to) {
     try (ObjectOutputStream os = new ObjectOutputStream(
         new BufferedOutputStream(
             Files.newOutputStream(

@@ -4,12 +4,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.User;
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMember;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+
+import java.util.Collection;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @Slf4j
+public // TODO: drop me
 final class Stringers {
   private Stringers() {}
 
@@ -77,6 +81,22 @@ final class Stringers {
         + (username.isEmpty() ? "" : '@' + username   )
         + (    name.isEmpty() ? "" : '[' + name  + ']')
         + (   title.isEmpty() ? "" : '[' + title + ']');
+  }
+
+  public static String stringify(Collection<User> users) {
+    return toString(users);
+  }
+
+  public static String toString(Collection<User> users) {
+    return users == null ? null : users.stream().map(Stringers::stringify).toList().toString();
+  }
+
+  public static String stringify(ChatMember msg) {
+    return toString(msg);
+  }
+
+  public static String toString(ChatMember msg) {
+    return toString(msg.getUser()) + msg.getStatus();
   }
 
   public static String stringify(CallbackQuery query) {
