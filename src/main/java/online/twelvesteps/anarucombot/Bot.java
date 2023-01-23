@@ -1,15 +1,18 @@
 package online.twelvesteps.anarucombot;
 
 import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import online.twelvesteps.anarucombot.CommandExecutionContext.UpdateKind;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
+import org.telegram.telegrambots.meta.api.methods.adminrights.SetMyDefaultAdministratorRights;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
+import org.telegram.telegrambots.meta.api.objects.adminrights.ChatAdministratorRights;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeAllChatAdministrators;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
@@ -44,6 +47,17 @@ final class Bot extends TelegramLongPollingBot {
           theBot.getBotUsername(), user.getUserName());
       usage();
       System.exit(126);
+    }
+
+    {
+      // set my admin privileges
+      val rights = new ChatAdministratorRights();
+      rights.setCanDeleteMessages(true);
+      rights.setCanManageVideoChats(true);
+      rights.setCanRestrictMembers(true);
+      rights.setCanPromoteMembers(true);
+      rights.setCanInviteUsers(true);
+      theBot.execute(new SetMyDefaultAdministratorRights(rights, null));
     }
 
     // tell users supported commands
