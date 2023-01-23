@@ -21,6 +21,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.toList;
 import static online.twelvesteps.anarucombot.Stringers.stringify;
 import static online.twelvesteps.anarucombot.Stringers.strippedNotEmpty;
 
@@ -186,9 +187,19 @@ final class Bot extends TelegramLongPollingBot {
       case TEXT    -> { /* swallow */ }
       case MESSAGE -> {
         final Message msg = update.getMessage();
-        log.info("onUpdateReceived: non–text msg sent to {} by {}",
-            stringify(msg.getChat()),
-            stringify(msg.getFrom()));
+        if (msg.getNewChatMembers() != null || msg.getLeftChatMember() != null) {
+          log.info("onUpdateReceived: non–text msg sent to {} by {}:"
+                  + "\n\tnew chat members: {}"
+                  + "\n\tleft chat member: {}",
+              stringify(msg.getChat()),
+              stringify(msg.getFrom()),
+              msg.getNewChatMembers().stream().map(Stringers::stringify).collect(toList()),
+              stringify(msg.getLeftChatMember()));
+        } else {
+          log.info("onUpdateReceived: non–text msg sent to {} by {}",
+              stringify(msg.getChat()),
+              stringify(msg.getFrom()));
+        }
       }
       default -> {
         if (!update.hasCallbackQuery()) {
