@@ -200,6 +200,15 @@ final class Bot extends TelegramLongPollingBot {
               stringify(msg.getFrom()),
               msg.getNewChatMembers().stream().map(Stringers::stringify).collect(toList()),
               stringify(msg.getLeftChatMember()));
+          try {
+            new DeleteMessageReaction<>().react(executionContext);
+          } catch (TelegramApiException ex) {
+            log.error("onUpdateReceived: [{}] sent to {} by {}",
+                msg.getText(),
+                stringify(msg.getChat()),
+                stringify(msg.getFrom()),
+                ex);
+          }
         } else {
           log.info("onUpdateReceived: non–text msg sent to {} by {}",
               stringify(msg.getChat()),
@@ -212,7 +221,7 @@ final class Bot extends TelegramLongPollingBot {
             os.writeObject(update);
             log.info("onUpdateReceived: serialized to {}", file);
           } catch (IOException ex) {
-            log.error("onUpdateReceived: on serializing received non-msg update", ex);
+            log.error("onUpdateReceived: on serializing to {} received non-msg update", file, ex);
           }
         }
       }
