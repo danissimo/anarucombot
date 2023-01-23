@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+# Push Image
+docker push danissimo/anarucombot:latest
