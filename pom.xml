@@ -34,6 +34,12 @@
       <artifactId>logback-classic</artifactId>
       <version>1.4.5</version>
     </dependency>
+    <dependency>
+      <groupId>org.codehaus.janino</groupId>
+      <artifactId>janino</artifactId>
+      <version>3.1.9</version>
+      <scope>runtime</scope>
+    </dependency>
   </dependencies>
 
   <build>

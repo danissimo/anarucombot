@@ -60,10 +60,10 @@ extends CommandReactionBuilder<Ctx> {
 
   BotReaction<?, Ctx, Void> replaceWith(BotReaction<?, Ctx, ?> reaction) {
     Function<Ctx, String> text = ctx -> {
-      long lastReactedAt = ctx.getLastCommandReactedAt().get();
-      long sinceLastReacted = System.currentTimeMillis() - lastReactedAt;
-      long leftToWaitMillis = THRESHOLD - sinceLastReacted;
-      int leftToWaitSecs = (int)Math.ceil(leftToWaitMillis / 1000F);
+      val lastReactedAt = ctx.getLastCommandReactedAt().get();
+      val sinceLastReacted = System.currentTimeMillis() - lastReactedAt;
+      val leftToWaitMillis = THRESHOLD - sinceLastReacted;
+      var leftToWaitSecs = (int)Math.ceil(leftToWaitMillis / 1000F);
       leftToWaitSecs = Integer.max(1, leftToWaitSecs);
       String leftToWaitStr = switch (leftToWaitSecs) {
         case 1 -> "секунду";
@@ -86,16 +86,16 @@ extends CommandReactionBuilder<Ctx> {
 
     return this.<Void>customReaction()
         .body((final Ctx ctx) -> {
-          final AtomicLong lastReactedAt = ctx.getLastCommandReactedAt();
-          final long sinceLastReacted = System.currentTimeMillis() - lastReactedAt.get();
+          val lastReactedAt = ctx.getLastCommandReactedAt();
+          val sinceLastReacted = System.currentTimeMillis() - lastReactedAt.get();
           if (sinceLastReacted >= THRESHOLD) {
             successive.react(ctx);
             lastReactedAt.set(System.currentTimeMillis());
           } else {
-            final Message msg = faulty.react(ctx);
+            val msg = faulty.react(ctx);
             if (msg != null) {
-              final int commandId = ctx.getUpdate().getMessage().getMessageId();
-              final int replyId = msg.getMessageId();
+              val commandId = ctx.getUpdate().getMessage().getMessageId();
+              val replyId = msg.getMessageId();
               val cleanup = chain(
                   deleteMessage().msgId(ignore -> commandId).logFailure(),
                   deleteMessage().msgId(ignore -> replyId).logFailure());

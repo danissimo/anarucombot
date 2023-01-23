@@ -6,6 +6,7 @@ import online.twelvesteps.anarucombot.CommandExecutionContext.UpdateKind;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.api.methods.adminrights.SetMyDefaultAdministratorRights;
+import org.telegram.telegrambots.meta.api.methods.commands.DeleteMyCommands;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Chat;
@@ -14,20 +15,22 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.adminrights.ChatAdministratorRights;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeAllChatAdministrators;
+import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeChatAdministrators;
+import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.lang.String.format;
-import static java.util.stream.Collectors.toList;
 import static online.twelvesteps.anarucombot.Stringers.stringify;
 import static online.twelvesteps.anarucombot.Stringers.strippedNotEmpty;
 
@@ -42,18 +45,20 @@ final class Bot extends TelegramLongPollingBot {
     System.out.println("Started on behalf of " + theBot.getBotUsername());
     new TelegramBotsApi(DefaultBotSession.class).registerBot(theBot);
 
-    User user = theBot.getMe();
-    log.info("The bot is authorized: " + stringify(user));
-    if (!theBot.getBotUsername().equals(user.getUserName())) {
-      System.err.printf("""
-          Wrong bot!
-          Started on behalf of %s,
-          but authorized as %s.
-          Terminated
-          """,
-          theBot.getBotUsername(), user.getUserName());
-      usage();
-      System.exit(126);
+    {
+      User botuser = theBot.getMe();
+      log.info("The bot is authorized: " + stringify(botuser));
+      if (!theBot.getBotUsername().equals(botuser.getUserName())) {
+        System.err.printf("""
+                Wrong bot!
+                Started on behalf of %s,
+                but authorized as %s.
+                Terminated
+                """,
+            theBot.getBotUsername(), botuser.getUserName());
+        usage();
+        System.exit(126);
+      }
     }
 
     {
@@ -67,11 +72,24 @@ final class Bot extends TelegramLongPollingBot {
       theBot.execute(new SetMyDefaultAdministratorRights(rights, null));
     }
 
+    {
+      log.info("Clearing all commands previously might be set. May be forbidden for chats this bot is not a member of now");
+      for (val i : SERVED_CHATS.keySet()) {
+        log.info("Clearing all commands for chat [{}]", SERVED_CHATS.get(i));
+        logFailure(() -> theBot.execute(new DeleteMyCommands(new BotCommandScopeChatAdministrators(String.valueOf(i)), null)));
+      }
+      logFailure(() -> theBot.execute(new DeleteMyCommands(new BotCommandScopeAllChatAdministrators(), null)));
+      logFailure(() -> theBot.execute(new DeleteMyCommands(new BotCommandScopeDefault(), null)));
+    }
+
     // tell users supported commands
-    theBot.execute(new SetMyCommands(
-        commands.commandsWithDescription(),
-        new BotCommandScopeAllChatAdministrators(),
-        null));
+    for (val i : SERVED_CHATS.keySet()) {
+      log.info("Setting commands for chat [{}]", SERVED_CHATS.get(i));
+      logFailure(() -> theBot.execute(new SetMyCommands(
+          commands.commandsWithDescription(),
+          new BotCommandScopeChatAdministrators(String.valueOf(i)),
+          null)));
+    }
   }
 
   private static EasyCommandReactionBuilder<EasyExecutionContext> buildReactions() {
@@ -83,7 +101,7 @@ final class Bot extends TelegramLongPollingBot {
         bind("3", "12 шагов АНА"            , replaceWith("3_steps"        ));
         bind("4", "12 традиций АНА"         , replaceWith("4_traditions"   ));
         bind("5", "Выход есть"              , replaceWith("5_solution"     ));
-        bind("6", "Приглашаем бога"         , replaceWith("6_prey_opening" ));
+        bind("6", "Приглашаем бога"         , replaceWith("6_prey_inviting" ));
         bind("7", "Молитва о душевном покое", replaceWith("7_prey_serenity"));
         bind("8", "Ссылки"                  , replaceWith(chain(
                                                  resource("8_links"        ),
@@ -177,7 +195,7 @@ final class Bot extends TelegramLongPollingBot {
               stringify(chat),
               stringify(msg.getFrom()));
         } else if (reaction == null) {
-          log.warn("onUpdateReceived: no reaction for command: [{}] sent to {} by {}",
+          log.warn("onUpdateReceived: no reaction for [{}] sent to {} by {}",
               msg.getText(),
               stringify(chat),
               stringify(msg.getFrom()));
@@ -185,10 +203,10 @@ final class Bot extends TelegramLongPollingBot {
           try {
             reaction.react(executionContext);
           } catch (TelegramApiException ex) {
-            log.error(format("onUpdateReceived: [%s] sent to %s by %s",
+            log.warn("onUpdateReceived: failed to react to [{}] sent to {} by {}",
                 msg.getText(),
                 stringify(chat),
-                stringify(msg.getFrom())),
+                stringify(msg.getFrom()),
                 ex);
           }
         }
@@ -197,7 +215,7 @@ final class Bot extends TelegramLongPollingBot {
       case MESSAGE -> {
         final Message msg = update.getMessage();
         if (msg.getNewChatMembers() != null || msg.getLeftChatMember() != null) {
-          log.info("onUpdateReceived: non–text msg sent to {} by {}:"
+          log.info("onUpdateReceived: new or left chat members of {} by {}:"
               + "\n\tnew chat members: {}"
               + "\n\tleft chat member: {}",
               stringify(msg.getChat()),
@@ -216,42 +234,47 @@ final class Bot extends TelegramLongPollingBot {
           }
           uniqueMemberIds.removeAll(SERVING_BOTS.keySet());
           if (uniqueMemberIds.isEmpty()) {
-            try {
-              new DeleteMessageReaction<>().react(executionContext);
-            } catch (TelegramApiException ex) {
-              log.error("onUpdateReceived: [{}] sent to {} by {}",
-                  msg.getText(),
-                  stringify(msg.getChat()),
-                  stringify(msg.getFrom()),
-                  ex);
-            }
+            logFailure(() -> new DeleteMessageReaction<>().react(executionContext));
           }
         } else {
           log.info("onUpdateReceived: non–text msg sent to {} by {}",
               stringify(msg.getChat()),
               stringify(msg.getFrom()));
-          final String file = "user-added-another-msg.ser";
-          try (val os = new ObjectOutputStream(
-              new BufferedOutputStream(
-                  Files.newOutputStream(
-                      Paths.get(file))))) {
-            os.writeObject(update);
-            log.info("onUpdateReceived: serialized to {}", file);
-          } catch (IOException ex) {
-            log.error("onUpdateReceived: on serializing to {} received non-msg update", file, ex);
-          }
+          serialize(update, "non-text-msg.ser");
         }
       }
       default -> {
         if (!update.hasCallbackQuery()) {
           log.info("onUpdateReceived: no message in update: {}", update);
+          serialize(update, "service-update.ser");
         } else {
           CallbackQuery query = update.getCallbackQuery();
           log.info("onUpdateReceived: callback query: {} sent by {}",
               stringify(query),
               stringify(query.getFrom()));
+          serialize(update, "callback-query.ser");
         }
       }
+    }
+  }
+
+  private static void logFailure(Callable<?> call) {
+    try {
+      call.call();
+    } catch (Throwable err) {
+      log.warn("http call failed", err);
+    }
+  }
+
+  private void serialize(Serializable what, String to) {
+    try (ObjectOutputStream os = new ObjectOutputStream(
+        new BufferedOutputStream(
+            Files.newOutputStream(
+                Paths.get(to))))) {
+      os.writeObject(what);
+      log.info("Serialized to {}", to);
+    } catch (IOException ex) {
+      log.error("Filed to serialize to {}", to, ex);
     }
   }
 }

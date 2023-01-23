@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!-- https://logback.qos.ch/manual/configuration.html -->
+<!DOCTYPE configuration>
+<configuration debug="true">
+  <evaluator name="full">
+    <expression>event.getLevel().toInt() &lt; ch.qos.logback.classic.Level.ERROR_INT</expression>
+  </evaluator>
+  <evaluator name="none">
+    <expression>event.getLevel().toInt() >= ch.qos.logback.classic.Level.ERROR_INT</expression>
+  </evaluator>
+
+  <appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%green(%d{HHmmss.SSS}) %highlight(%.-1level) %magenta(%thread)/%cyan(%logger{0}) - %msg%n%ex{0, none}%ex{full, full}</pattern>
+    </encoder>
+  </appender>
+
+  <root level="all">
+    <appender-ref ref="stdout"/>
+  </root>
+</configuration>
