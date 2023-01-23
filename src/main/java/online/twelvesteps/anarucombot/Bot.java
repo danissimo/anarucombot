@@ -17,6 +17,11 @@ import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScope
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
+import java.io.BufferedOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -189,8 +194,8 @@ final class Bot extends TelegramLongPollingBot {
         final Message msg = update.getMessage();
         if (msg.getNewChatMembers() != null || msg.getLeftChatMember() != null) {
           log.info("onUpdateReceived: non–text msg sent to {} by {}:"
-                  + "\n\tnew chat members: {}"
-                  + "\n\tleft chat member: {}",
+              + "\n\tnew chat members: {}"
+              + "\n\tleft chat member: {}",
               stringify(msg.getChat()),
               stringify(msg.getFrom()),
               msg.getNewChatMembers().stream().map(Stringers::stringify).collect(toList()),
@@ -199,6 +204,16 @@ final class Bot extends TelegramLongPollingBot {
           log.info("onUpdateReceived: non–text msg sent to {} by {}",
               stringify(msg.getChat()),
               stringify(msg.getFrom()));
+          final String file = "user-added-another-msg.ser";
+          try (val os = new ObjectOutputStream(
+              new BufferedOutputStream(
+                  Files.newOutputStream(
+                      Paths.get(file))))) {
+            os.writeObject(update);
+            log.info("onUpdateReceived: serialized to {}", file);
+          } catch (IOException ex) {
+            log.error("onUpdateReceived: on serializing received non-msg update", ex);
+          }
         }
       }
       default -> {
