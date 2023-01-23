@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+br=$(git branch)
 for i in $(git tag -l); do
   git co $i > /dev/null 2>&1
   total=$(find . \( \
@@ -12,4 +13,4 @@ for i in $(git tag -l); do
     -type f -exec wc -l {} + | grep total)
   echo $i : $total
 done
-git switch - > /dev/null 2>&1
+git co $br > /dev/null 2>&1
