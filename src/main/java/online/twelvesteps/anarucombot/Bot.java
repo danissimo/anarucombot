@@ -46,7 +46,6 @@ import java.util.concurrent.Callable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.stream.Collectors.toMap;
-import static online.twelvesteps.anarucombot.Stringers.first;
 import static online.twelvesteps.anarucombot.Stringers.stringify;
 import static online.twelvesteps.anarucombot.Stringers.strippedNotEmpty;
 
@@ -247,29 +246,15 @@ final class Bot extends TelegramLongPollingBot {
           logFailure(() -> new DeleteMessageReaction<>().react(executionContext));
         }
       }
-      case TEXT -> { /* swallow */ if (false) {
-        val msg = update.getMessage() == null ? update.getEditedMessage() : update.getMessage();
-        assert msg != null;
-        log.info("onUpdateReceived: in {} by {}: text: {}",
-            stringify(msg.getChat()),
-            stringify(msg.getFrom()),
-            first(128).of(msg.getText()));
-      }}
+      case TEXT    -> { /* swallow */ }
       case MESSAGE -> {
         final Message msg = update.getMessage();
-        final User mold = msg.getLeftChatMember();
-        final List<User> mnew = msg.getNewChatMembers();
-        if (!isEmpty(mnew) || mold != null) {
-          // NOTE: this is just a message that appear in the chat
+        if (!isEmpty(msg.getNewChatMembers()) || msg.getLeftChatMember() != null) {
+          // NOTE: this is just a message that appears in a chat
           // NOTE: actual update is communicated via Update object
-          log.info("onUpdateReceived: in {} by {}: msg about members:"
-              + "\n\tnew chat members: {}"
-              + "\n\tleft chat member: {}",
-              stringify(msg.getChat()),
-              stringify(msg.getFrom()),
-              stringify(mnew),
-              stringify(mold));
           // check if the message is about anarucombots ONLY delete it
+          final User mold = msg.getLeftChatMember();
+          final List<User> mnew = msg.getNewChatMembers();
           val uniqueMemberIds = new HashSet<Long>();
           if (!isEmpty(mnew)) {
             uniqueMemberIds.addAll(mnew.stream().map(User::getId).toList());
@@ -281,7 +266,9 @@ final class Bot extends TelegramLongPollingBot {
           if (uniqueMemberIds.isEmpty()) {
             logFailure(() -> new DeleteMessageReaction<>().react(executionContext));
           }
-        } else {
+        } else if (msg.getDocument() == null // gif?
+                && msg.getPhoto() == null
+                && msg.getVideoChatScheduled() == null) {
           log.info("onUpdateReceived: in {} by {}: non–text msg",
               stringify(msg.getChat()),
               stringify(msg.getFrom()));
@@ -343,7 +330,8 @@ final class Bot extends TelegramLongPollingBot {
   // map is just for debugging purposes
   private final LoadingCache<Long, Map<Long, String>> chatAdminSetCache
       = CacheBuilder.newBuilder().build(new CacheLoader<>() {
-        @Override public Map<Long, String> load(Long chatId) throws TelegramApiException {
+        @SuppressWarnings("NullableProblems") @Override
+        public Map<Long, String> load(Long chatId) throws TelegramApiException {
           return execute(new GetChatAdministrators(String.valueOf(chatId)))
               .stream()
               .map(ChatMember::getUser)
