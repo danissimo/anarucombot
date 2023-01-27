@@ -267,10 +267,10 @@ final class Bot extends TelegramLongPollingBot {
             logFailure(() -> new DeleteMessageReaction<>().react(executionContext));
           }
         } else if (msg.getDocument() == null // gif?
-                && msg.getPhoto() == null
+                && msg.getPhoto   () == null
                 && msg.getVideoChatScheduled() == null
                 && msg.getVideoChatStarted  () == null
-                /*&& msg.getVideoChatEnded    () == null*/) {
+                && msg.getVideoChatEnded    () == null) {
           log.info("onUpdateReceived: in {} by {}: non–text msg",
               stringify(msg.getChat()),
               stringify(msg.getFrom()));
