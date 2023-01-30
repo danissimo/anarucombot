@@ -303,10 +303,13 @@ final class Bot extends TelegramLongPollingBot {
               stringify(mold),
               stringify(mnew));
           val admin = CHAT_MEMBER_STATUS_ADMIN; // just for brevity
-          val statuses = Set.of(mold.getStatus(), mnew.getStatus());
+          // NOTE: it's possible mold.getStatus() == mnew.getStatus()
+          // NOTE: That's why I can't use Set.of(...) since it throws
+          // NOTE: a RuntimeException if equal values are provided
+          val statuses = new HashSet<>(Arrays.asList(mold.getStatus(), mnew.getStatus()));
           if (Objects.equals(mold.getUser().getId(), mnew.getUser().getId())
-          && !Objects.equals(mold.getStatus(), mnew.getStatus())
-          && statuses.contains(admin)) { // is any admin?
+              && statuses.contains(admin) // is any admin?
+              && statuses.size() > 1) { // did status of being admin change?
             val chatId = chat.getId();
             val adminId = mold.getUser().getId();
             Map<Long, String> adminSet = getCachedAdminSetFor(chatId);
