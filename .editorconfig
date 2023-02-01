@@ -35,3 +35,5 @@ ij_xml_space_after_tag_name = false
 [*.java]
 ij_java_space_after_type_cast = false
 ij_java_place_assignment_sign_on_next_line = true
+ij_java_binary_operation_sign_on_next_line = true
+ij_java_align_multiline_parameters = false
