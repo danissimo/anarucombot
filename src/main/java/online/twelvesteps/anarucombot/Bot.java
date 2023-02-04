@@ -116,7 +116,7 @@ final class Bot extends TelegramLongPollingBot {
         bind("3", "12 шагов АНА"            , replaceWith("3_steps"        ));
         bind("4", "12 традиций АНА"         , replaceWith("4_traditions"   ));
         bind("5", "Выход есть"              , replaceWith("5_solution"     ));
-        bind("6", "Приглашаем бога"         , replaceWith("6_prey_inviting" ));
+        bind("6", "Приглашаем Бога"         , replaceWith("6_prey_inviting" ));
         bind("7", "Молитва о душевном покое", replaceWith("7_prey_serenity"));
         bind("8", "Ссылки"                  , replaceWith(chain(
                                                  resource("8_links"        ),
