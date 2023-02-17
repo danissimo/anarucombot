@@ -268,6 +268,7 @@ final class Bot extends TelegramLongPollingBot {
           }
         } else if (msg.getDocument() == null // gif?
                 && msg.getPhoto   () == null
+                && msg.getSticker () == null
                 && msg.getVideo   () == null
                 && msg.getVideoChatScheduled() == null
                 && msg.getVideoChatStarted  () == null
