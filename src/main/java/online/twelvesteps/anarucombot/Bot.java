@@ -270,9 +270,10 @@ final class Bot extends TelegramLongPollingBot {
                 && msg.getPhoto   () == null
                 && msg.getSticker () == null
                 && msg.getVideo   () == null
-                && msg.getVideoChatScheduled() == null
-                && msg.getVideoChatStarted  () == null
-                && msg.getVideoChatEnded    () == null) {
+                && msg.getVideoChatScheduled          () == null
+                && msg.getVideoChatStarted            () == null
+                && msg.getVideoChatEnded              () == null
+                && msg.getVideoChatParticipantsInvited() == null) {
           log.info("onUpdateReceived: in {} by {}: non–text msg",
               stringify(msg.getChat()),
               stringify(msg.getFrom()));
