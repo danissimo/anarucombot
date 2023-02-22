@@ -1,3 +1,3 @@
-#!/usr/bin/env sh
-# Push Image
+#!/usr/bin/env bash
+# pi: Push Image
 docker push danissimo/anarucombot:latest

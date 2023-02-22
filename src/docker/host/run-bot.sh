@@ -19,9 +19,11 @@ IMAGE="danissimo/anarucombot:$TAG"
 CONT=anarucombot
 
 if [ "$TAG" = latest ]; then
+  echo "Removing image $IMAGE"
   docker rmi -f "$IMAGE"
 fi
 if [ -z "$(docker images -q "$IMAGE")" ] \
+&& echo "Pulling image $IMAGE"          \
 && ! docker pull "$IMAGE"; then
   echo "Failed to pull image: $IMAGE"
   echo "Current container left intact: $CONT"
@@ -30,9 +32,11 @@ if [ -z "$(docker images -q "$IMAGE")" ] \
 fi
 
 # kill currently running if any
-docker rm -f $CONT > /dev/null 2>&1
+echo "Killing container $CONT"
+docker rm -f $CONT
 
 # launch new
+echo "Launching new container $CONT for image $IMAGE"
 docker run                        \
   --env ANARUCOMBOTTOKEN="$TOKEN" \
   --detach                        \
