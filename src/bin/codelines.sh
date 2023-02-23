@@ -14,8 +14,8 @@ done
 home="$(dirname "$script")/../.."
 cd "$home" || exit $?
 
-br=$(git branch)
-for i in $(git tag --list); do
+br="$(git branch --show-current)"
+for i in $(git tag --list | sort --version-sort); do
   git checkout $i > /dev/null 2>&1
   total=$(find . \( \
       !  -path './.idea*'     \
