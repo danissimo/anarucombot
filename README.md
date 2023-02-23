@@ -24,13 +24,13 @@ of commands. Sets of commands for admins differ from sets of commands for
 non–admins.
 
 There're two bots—production and staging (remember the `alfa` in bot's name).
-When someone adds into or removes either of the two bots from a group the
-message appears stating the bot was added or removed. The bot removes those
-messages. I'm not sure the latter was a good idea. We'll see.
+When someone adds into or removes either of the two bots from a group a message
+appears stating the bot was added or removed. The bot removes those messages.
+I'm not sure the latter was a good idea. We'll see.
 
 Also the bot removes messages if:
  - it is a non–supported command;
- - it a command given to the other bot of the two;
+ - it is a command given to any other bot;
  - it is a command given to a bot in a non–supported group.
 
 
