@@ -1,10 +1,10 @@
 # anarucombot
 
 To launch the bot run `src/docker/host/run-bot.sh`. It takes `TAG` argument.
-`TAG` means `VERSION`. It the same as at docker hub image [repo]. The script
-pulls the image tagged with `TAG` and launches it.
+`TAG` means `VERSION`. It's the same as at the docker hub image [repo]. The
+script pulls the image tagged with `TAG` and launches it.
 
-**NOTE:** You have to pass `TOKEN` as the second argument or pass
+**NOTE:** You have to pass `TOKEN` as the second argument or export
 `ANARUCOMBOTTOKEN` environment variable to that script.
 
 **HINT:** When the bot launches it prints on behalf of whom it operates.
@@ -13,18 +13,25 @@ Mind the `alfa`.
 
 ---
 
-Прикинь, теперь когда следующая команда поступает раньше, чем через 5 секунд, бот отвечает, прям риплаит, что он не железный, обратись через 5 секунд/4/3/пару/секунду. А через 4 секунды после того, как пориплаил, удаляет и команду, которая вызвала риплай, и сам риплай.
+When the bot receives a next command earlier than after 5 seconds it
+replies—literally replies—he's not steel and suggest to come back in
+5 seconds, 4, 3, a couple of seconds, in a second—literally changes
+the text. And 4 seconds after the reply it removes the command caused
+the reply and the reply itself.
 
-А ещё бот регает список команд для каждого чата свой. Для админов свой список, для неадминов свой
+The bot serves different chats. For each chat it maintains a dedicated set
+of commands. Sets of commands for admins differ from sets of commands for
+non–admins.
 
-А ещё удаляет сообщение, что кто–то добавил в чат бота, одного из двух — основного и тестового. Или удалил из чата одного из этих двух ботов, тоже удаляет
+There're two bots—production and staging (remember the `alfa` in bot's name).
+When someone adds into or removes either of the two bots from a group the
+message appears stating the bot was added or removed. The bot removes those
+messages. I'm not sure the latter was a good idea. We'll see.
 
-Последнее, может, и зря... Посмотрим по практике использования
-
-А ещё он пытается удалить сообщение с:
-- неподдерживаемой командой;
-- командой, отданной другому боту;
-- командой, пришедшей из неподдердиваемого чата.
+Also the bot removes messages if:
+ - it is a non–supported command;
+ - it a command given to the other bot of the two;
+ - it is a command given to a bot in a non–supported group.
 
 
 [repo]: https://hub.docker.com/repository/docker/danissimo/anarucombot
