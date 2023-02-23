@@ -1,14 +1,12 @@
 package online.twelvesteps.anarucombot;
 
 import lombok.val;
-import org.telegram.telegrambots.meta.api.objects.Message;
 
 import java.io.IOException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -16,7 +14,7 @@ import java.util.function.Function;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-abstract class EasyCommandReactionBuilder<Ctx extends EasyExecutionContext>
+class EasyCommandReactionBuilder<Ctx extends EasyExecutionContext>
 extends CommandReactionBuilder<Ctx> {
   @Override
   protected BiFunction<IOException, String, byte[]> defaultBinaryContentSupplier() {
@@ -30,13 +28,10 @@ extends CommandReactionBuilder<Ctx> {
     };
   }
 
-  //private final String resourceRoot = '/' + getClass().getPackageName().replace('.', '/') + '/';
-  private static final String resourceRoot = "";
-
   @Override
   protected Function<Ctx, byte[]> binaryResourceContentLazyLoader(
       String name, BiFunction<IOException, String, byte[]> ifCantLoad) {
-    return super.binaryResourceContentLazyLoader(resourceRoot + name + ".md", ifCantLoad);
+    return super.binaryResourceContentLazyLoader(name + ".md", ifCantLoad);
   }
 
   SendMessageReaction<Ctx> resource(String name) {

@@ -9,10 +9,6 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 class CommandExecutionContext {
-  public enum UpdateKind {
-    UPDATE, MESSAGE, TEXT, COMMAND;
-  }
-
   private static final String[] NO_ARGS = new String[0];
   private final AbsSender communicatingAgent;
   private final Pattern ptrn;
@@ -26,29 +22,21 @@ class CommandExecutionContext {
     ptrn = Pattern.compile("^/(\\w+)(?:@(\\w+))?(?:\\s+(.+))?$");
   }
 
-  public UpdateKind update(Update update) {
+  public void update(Update update) {
     this.update = update;
     this.receivedCommand = null;
     this.receivedTargetBotname = null;
     this.receivedCommandArgs = null;
 
-    UpdateKind updateKind;
-    if (!update.hasMessage()) {
-      updateKind = UpdateKind.UPDATE;
-    } else if (!update.getMessage().hasText()) {
-      updateKind = UpdateKind.MESSAGE;
-    } else {
-      updateKind = UpdateKind.TEXT;
+    if (update.hasMessage() && update.getMessage().hasText()) {
       Matcher mchr = ptrn.matcher(update.getMessage().getText());
       if (mchr.matches()) {
-        updateKind = UpdateKind.COMMAND;
         this.receivedCommand = mchr.group(1);
         this.receivedTargetBotname = mchr.group(2);
         String tail = mchr.group(3);
         this.receivedCommandArgs = tail == null ? NO_ARGS : tail.trim().split("\\s+");
       }
     }
-    return updateKind;
   }
 
   public AbsSender getCommunicatingAgent() { return communicatingAgent; }

@@ -6,7 +6,6 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import online.twelvesteps.anarucombot.CommandExecutionContext.UpdateKind;
 import org.telegram.telegrambots.bots.DefaultBotOptions;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
@@ -41,7 +40,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.Callable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -111,19 +109,19 @@ final class Bot extends TelegramLongPollingBot {
     return new EasyCommandReactionBuilder<>() {
       {
         // @formatter:off
-        bind("1", "Что такое АНА?"          , replaceWith("1_what_is"      ));
-        bind("2", "Утверждение цели АНА"    , replaceWith("2_the_goal"     ));
-        bind("3", "12 шагов АНА"            , replaceWith("3_steps"        ));
-        bind("4", "12 традиций АНА"         , replaceWith("4_traditions"   ));
-        bind("5", "Выход есть"              , replaceWith("5_solution"     ));
-        bind("6", "Приглашаем Бога"         , replaceWith("6_prey_inviting" ));
-        bind("7", "Молитва о душевном покое", replaceWith("7_prey_serenity"));
+        bind("1", "Что такое АНА?"          , replaceWith("1-what-is"      ));
+        bind("2", "Утверждение цели АНА"    , replaceWith("2-the-goal"     ));
+        bind("3", "12 шагов АНА"            , replaceWith("3-steps"        ));
+        bind("4", "12 традиций АНА"         , replaceWith("4-traditions"   ));
+        bind("5", "Выход есть"              , replaceWith("5-solution"     ));
+        bind("6", "Приглашаем Бога"         , replaceWith("6-prey-inviting" ));
+        bind("7", "Молитва о душевном покое", replaceWith("7-prey-serenity"));
         bind("8", "Ссылки"                  , replaceWith(chain(
-                                                 resource("8_links"        ),
-                                                 resource("9_ads"          ))));
+                                                 resource("8-links"        ),
+                                                 resource("9-ads"          ))));
         // ----------------------------------------------------------------
-        bind("help" , "Покажу, что могу (но позже)", resource("help" ).ifReacted(clearTimestamp()));
-        bind("start", "Включи меня"                , resource("start").ifReacted(clearTimestamp()));
+        //bind("help" , "Покажу, что могу (но позже)", resource("help" ).ifReacted(clearTimestamp()));
+        //bind("start", "Включи меня"                , resource("start").ifReacted(clearTimestamp()));
         // @formatter:on
       }
     };
@@ -136,7 +134,7 @@ final class Bot extends TelegramLongPollingBot {
   private static void usage() {
     // to avoid reordering with printing to STDERR
     try { Thread.sleep(10); }
-    catch(InterruptedException ignore) {}
+    catch (InterruptedException ignore) {}
     System.out.printf("""
             Usage: %s="$BOTTOKEN" java -jar anarucombot.jar [BOTNAME]
             BOTNAME - %s (default)
@@ -205,13 +203,25 @@ final class Bot extends TelegramLongPollingBot {
 
   @Override
   public void onUpdateReceived(Update update) {
-    UpdateKind updateKind = executionContext.update(update);
-    if (updateKind == UpdateKind.UPDATE) {
-      if (update.hasEditedMessage()) {
-        updateKind = UpdateKind.MESSAGE;
-        if (update.getEditedMessage().hasText()) {
-          updateKind = UpdateKind.TEXT;
+    executionContext.update(update);
+
+    enum UpdateKind {
+      UPDATE, MESSAGE, TEXT, COMMAND;
+    }
+
+    UpdateKind updateKind = UpdateKind.UPDATE;
+    if (update.hasMessage()) {
+      updateKind = UpdateKind.MESSAGE;
+      if (update.getMessage().hasText()) {
+        updateKind = UpdateKind.TEXT;
+        if (update.getMessage().isCommand()) {
+          updateKind = UpdateKind.COMMAND;
         }
+      }
+    } else if (update.hasEditedMessage()) {
+      updateKind = UpdateKind.MESSAGE;
+      if (update.getEditedMessage().hasText()) {
+        updateKind = UpdateKind.TEXT;
       }
     }
     switch (updateKind) {
