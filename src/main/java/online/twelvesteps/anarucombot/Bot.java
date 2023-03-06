@@ -258,7 +258,9 @@ final class Bot extends TelegramLongPollingBot {
       }
       case TEXT    -> { /* swallow */ }
       case MESSAGE -> {
-        final Message msg = update.getMessage();
+        final Message msg = update.hasMessage()
+            ? update.getMessage()
+            : update.getEditedMessage();
         if (!isEmpty(msg.getNewChatMembers()) || msg.getLeftChatMember() != null) {
           // NOTE: this is just a message that appears in a chat
           // NOTE: actual update is communicated via Update object
